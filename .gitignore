@@ -7,3 +7,7 @@ __pycache__/
 results/
 pseudopotentials/
 .ipynb_checkpoints/
+build/
+dist/
+*.whl
+notebooks/*_output.ipynb

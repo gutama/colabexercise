@@ -1,0 +1,13 @@
+{
+  "backend": "pyscf",
+  "molecule": {
+    "atoms": [
+      {"element": "Li", "xyz": [0.0, 0.0, 0.0]},
+      {"element": "H", "xyz": [0.0, 0.0, 1.595]}
+    ]
+  },
+  "basis": "sto-3g",
+  "method": "hf",
+  "reference_methods": ["fci", "ccsd", "ccsd(t)"],
+  "qubit": {"mapping": "bravyi_kitaev"}
+}

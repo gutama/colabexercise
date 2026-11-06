@@ -4,21 +4,30 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "colab-quantum-chemistry"
-version = "0.1.0"
-description = "Small-molecule DFT and molecular Hamiltonian workflows for Colab"
+version = "0.2.0"
+description = "Template: molecular Hamiltonians from PySCF/QE to qubit operators, locally or on Colab"
+readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.10,<3.14"
 dependencies = [
   "numpy>=1.24",
+  "scipy>=1.10",
   "pydantic>=2,<3",
   "pyscf>=2.7,<3",
-  "mcp>=1.9,<2",
+  "mcp>=1.9,<2",  # mcp 2.x renamed FastMCP; migrate before raising this pin
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=8", "nbformat>=5"]
+# Qubit Hamiltonian export and the ADAPT-VQE reference solver.
+qubit = ["openfermion>=1.6"]
+# Qiskit is only used to cross-check qubit ordering in the tests.
+test = ["pytest>=8", "nbformat>=5", "qiskit>=1.0"]
+dev = ["ruff>=0.6"]
 
 [project.scripts]
 quantum-workflow = "quantum_workflow.cli:main"
+quantum-workflow-adapt = "quantum_workflow.adapt:main"
+quantum-workflow-colab = "quantum_workflow.colab:main"
 quantum-workflow-mcp = "quantum_workflow.mcp_server:main"
 
 [tool.setuptools.packages.find]
@@ -26,3 +35,12 @@ include = ["quantum_workflow*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: multi-second chemistry runs (deselect with -m 'not slow')"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["build", "notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]

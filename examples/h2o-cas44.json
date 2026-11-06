@@ -1,0 +1,15 @@
+{
+  "backend": "pyscf",
+  "molecule": {
+    "atoms": [
+      {"element": "O", "xyz": [0.0, 0.0, 0.1173]},
+      {"element": "H", "xyz": [0.0, 0.7572, -0.4692]},
+      {"element": "H", "xyz": [0.0, -0.7572, -0.4692]}
+    ]
+  },
+  "basis": "sto-3g",
+  "method": "hf",
+  "active_space": {"n_electrons": 4, "n_orbitals": 4},
+  "reference_methods": ["fci", "ccsd"],
+  "qubit": {"mapping": "jordan_wigner"}
+}
