@@ -56,7 +56,11 @@ def _stream(command: list[str], **kwargs) -> int:
 
 def pip_install(requirements: list[str]) -> None:
     if shutil.which("uv"):
-        command = ["uv", "pip", "install", "--system", *requirements]
+        # Colab's kernel runs the system Python (what `colab install` targets with --system);
+        # inside a virtualenv, install into the interpreter running this script instead.
+        in_venv = sys.prefix != sys.base_prefix
+        target = ["--python", sys.executable] if in_venv else ["--system"]
+        command = ["uv", "pip", "install", *target, *requirements]
     else:
         command = [sys.executable, "-m", "pip", "install", "-q", *requirements]
     if _stream(command) != 0:
