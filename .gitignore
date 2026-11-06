@@ -1,0 +1,9 @@
+.venv/
+.qe-env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+results/
+pseudopotentials/
+.ipynb_checkpoints/

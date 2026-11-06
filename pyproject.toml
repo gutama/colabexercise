@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "colab-quantum-chemistry"
+version = "0.1.0"
+description = "Small-molecule DFT and molecular Hamiltonian workflows for Colab"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+  "numpy>=1.24",
+  "pydantic>=2,<3",
+  "pyscf>=2.7,<3",
+  "mcp>=1.9,<2",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "nbformat>=5"]
+
+[project.scripts]
+quantum-workflow = "quantum_workflow.cli:main"
+quantum-workflow-mcp = "quantum_workflow.mcp_server:main"
+
+[tool.setuptools.packages.find]
+include = ["quantum_workflow*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
