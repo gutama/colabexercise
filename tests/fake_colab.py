@@ -33,7 +33,9 @@ def main() -> int:
     parser.add_argument("--high-mem", action="store_true")
     parser.add_argument("--env", action="append", default=[])
     parser.add_argument("paths", nargs="*")
-    args = parser.parse_args(argv)
+    # Intermixed: `upload -s NAME SRC DST` puts positionals after an option, which plain
+    # parse_args only accepts from Python 3.12 on.
+    args = parser.parse_intermixed_args(argv)
     sessions = json.loads(STATE.read_text()) if STATE.exists() else []
 
     if os.environ.get("FAKE_COLAB_UNAUTH"):
