@@ -1,0 +1,41 @@
+name: Li-hBN reproducibility (synthetic)
+
+on:
+  push:
+    paths:
+      - 'lihbn_repro/**'
+      - 'notebooks/lihbn_reproduction.ipynb'
+      - 'tests/test_lihbn_repro.py'
+      - '.github/workflows/lihbn-repro.yml'
+  pull_request:
+    paths:
+      - 'lihbn_repro/**'
+      - 'notebooks/lihbn_reproduction.ipynb'
+      - 'tests/test_lihbn_repro.py'
+      - '.github/workflows/lihbn-repro.yml'
+
+jobs:
+  synthetic-cpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install scientific validation dependencies
+        run: python -m pip install numpy scipy pandas pytest nbformat nbclient ipykernel
+      - name: Run unit tests
+        run: PYTHONPATH=. python -m pytest tests/test_lihbn_repro.py -q
+      - name: Execute notebook (synthetic DEMO only)
+        run: |
+          python - <<'PYNOTEBOOK'
+          from pathlib import Path
+          import nbformat
+          from nbclient import NotebookClient
+          path = Path('notebooks/lihbn_reproduction.ipynb')
+          notebook = nbformat.read(path, as_version=4)
+          NotebookClient(notebook, timeout=120, kernel_name='python3',
+                         resources={'metadata': {'path': str(Path.cwd())}}).execute()
+          print('Synthetic DEMO notebook: completed all cells')
+          PYNOTEBOOK
