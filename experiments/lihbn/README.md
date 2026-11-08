@@ -6,7 +6,11 @@
 
 [Open the Li-hBN notebook on this branch](https://colab.research.google.com/github/gutama/colabexercise/blob/feat/lihbn-colab-reproduction/notebooks/lihbn_reproduction.ipynb)
 
-The feature branch is published on GitHub; open the Colab link directly. The notebook defaults to cloning the published branch automatically. Alternatively, set `SOURCE_MODE="ZIP"` to upload the offline reproduction package. Run on a **CPU runtime**. Its default mode is `DEMO`, creating two small **synthetic** spin-resolved Wannier90-format files and running deterministic tests. Nothing requires a GPU or launches a 20-day computation. It saves inputs' SHA-256, versions, eigenvectors and numerical checks in a private Colab output directory.
+The feature branch is published on GitHub; open the Colab link directly.
+The notebook defaults to cloning the published branch automatically, with a
+manual ZIP fallback. GitHub Actions executes the notebook from an existing
+checkout, so CI success does **not** test a fresh Google Colab bootstrap.
+A live Colab runtime validation is still outstanding. Alternatively, set `SOURCE_MODE="ZIP"` to upload the offline reproduction package. Run on a **CPU runtime**. Its default mode is `DEMO`, creating two small **synthetic** spin-resolved Wannier90-format files and running deterministic tests. Nothing requires a GPU or launches a 20-day computation. It saves inputs' SHA-256, versions, eigenvectors and numerical checks in a private Colab output directory.
 
 Switch `DATA_MODE='REAL'` only after mounting Google Drive or uploading the original per-spin Wannier90 `*_hr.dat`. Use paths to the specific 97-Wannier/149-R files. Original records are not put into this public repository. Output of H(R=0) and the full Fourier H(k=Gamma) are **different**; the notebook defaults to the note's H(R=0) convention. Use `H_MODE='gamma'` explicitly to make a different comparison.
 
@@ -15,7 +19,14 @@ The original notebook selects physical, 1-based indices:
 - spin UP: `[19,33,55,56,57,67,68,69,70,71,72]`
 - spin DOWN: `[19,31,55,56,57,67,68,69,70,71,72]`
 
-These form a **spin-blocked** 22-mode *one-particle* Hamiltonian. They must not be equated with a 22-qubit **correlated** Li-hBN wavefunction. The original selected active-space electron numbers are not established in the attachment. For real data, leave `N_UP` and `N_DOWN` set to `None` until verified. If given, the code constructs the quadratic-fermion occupied projectors and a bounded fixed-sector cross-check, not a correlated many-body solver.
+These form a **spin-blocked** 22-mode *one-particle* Hamiltonian.
+The experiment also exports an **interleaved** 22×22 copy related by an
+exact permutation of spin-orbital labels. This is NOT a correlated state.
+Crucially, the existing `clifford_qc.models.effective_hamiltonian` format
+assumes a **shared spin-independent** one-body matrix. **Do not average,
+equate, or silently reuse one Li-hBN spin block for the other**; a separate,
+independently checked spin-dependent adapter is required before any
+material-specific `clifford_qc` calculation. They must not be equated with a 22-qubit **correlated** Li-hBN wavefunction. The original selected active-space electron numbers are not established in the attachment. For real data, leave `N_UP` and `N_DOWN` set to `None` until verified. If given, the code constructs the quadratic-fermion occupied projectors and a bounded fixed-sector cross-check, not a correlated many-body solver.
 
 The notebook also provides optional read-only checks for:
 

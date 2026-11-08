@@ -27,6 +27,12 @@ def compare_eig_csv(csv_path: str | Path, up_path: str | Path,
             raise ValueError(f"{name}: wrong NSCF channel size")
         if table.duplicated(["k_index","band"]).any():
             raise ValueError(f"{name}: duplicate k/band pairs")
+        expected_k = np.repeat(np.arange(1, expected_kpoints + 1), expected_bands)
+        expected_band = np.tile(np.arange(1, expected_bands + 1), expected_kpoints)
+        if not np.array_equal(table.k_index.to_numpy(), expected_k) or not np.array_equal(
+            table.band.to_numpy(), expected_band
+        ):
+            raise ValueError(f"{name}: missing or unexpected k-point/band indices")
         eig = np.loadtxt(path,ndmin=2)
         if eig.shape != (len(table),3):
             raise ValueError(f"{name}: expected {(len(table),3)} .eig shape, got {eig.shape}")

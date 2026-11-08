@@ -2,7 +2,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from lihbn_repro.wannier import (make_demo_hr,parse_hr,one_particle_eigenpairs,
-                                 sector_crosscheck,spin_blocks)
+                                 sector_crosscheck,spin_blocks,spin_blocked_to_interleaved)
 from lihbn_repro.qe_audit import audit
 
 
@@ -89,3 +89,41 @@ def test_eig_csv_index_and_energy_validation(tmp_path):
         np.savetxt(tmp_path/f'{name}.eig',array)
     report=compare_eig_csv(tmp_path/'spectrum.csv',tmp_path/'up.eig',tmp_path/'down.eig',expected_kpoints=2,expected_bands=2)
     assert report['up']['max_abs_ev']==0 and report['down']['max_abs_ev']==0
+
+
+def test_asymmetric_spin_order_permutation():
+    """Spin-resolved blocks cannot silently collapse to a common spin Hamiltonian."""
+    up = np.array([[0.3, 0.4j], [-0.4j, 1.7]], complex)
+    down = np.array([[-2., 0.6], [0.6, 0.2]], complex)
+    got = spin_blocked_to_interleaved(up, down)
+    blocked = np.block([[up, np.zeros_like(up)], [np.zeros_like(down), down]])
+    order = [0, 2, 1, 3]
+    np.testing.assert_allclose(got, blocked[np.ix_(order, order)], atol=0, rtol=0)
+    np.testing.assert_allclose(got[0::2, 0::2], up)
+    np.testing.assert_allclose(got[1::2, 1::2], down)
+    assert not np.allclose(got[0::2, 0::2], got[1::2, 1::2])
+    with pytest.raises(ValueError):
+        spin_blocked_to_interleaved(up, np.eye(3))
+
+
+def test_eig_csv_rejects_matching_but_incomplete_grid(tmp_path):
+    """Two mutually consistent corrupted inputs must fail grid coverage validation."""
+    import pandas as pd
+    from lihbn_repro.validation import compare_eig_csv
+    rows = [(k, spin, b, -spin*k + b)
+            for spin in (1, 2) for k in (2, 3) for b in (1, 2)]
+    pd.DataFrame(rows, columns=['k_index','spin','band','energy_eV']).to_csv(
+        tmp_path/'wrong_grid.csv', index=False)
+    for spin, name in ((1,'up'),(2,'down')):
+        lines = [(b, k, -spin*k + b) for k in (2,3) for b in (1,2)]
+        np.savetxt(tmp_path/f'{name}.eig', np.array(lines))
+    with pytest.raises(ValueError, match='missing or unexpected'):
+        compare_eig_csv(tmp_path/'wrong_grid.csv', tmp_path/'up.eig',
+                        tmp_path/'down.eig', expected_kpoints=2, expected_bands=2)
+
+
+def test_colab_notebook_uses_published_github_by_default():
+    import json
+    path = Path(__file__).resolve().parents[1]/'notebooks/lihbn_reproduction.ipynb'
+    cells = json.loads(path.read_text())['cells']
+    assert 'SOURCE_MODE = "GITHUB"' in ''.join(cells[1]['source'])

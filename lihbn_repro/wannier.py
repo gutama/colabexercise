@@ -159,6 +159,25 @@ def spin_blocks(up: WannierHR, down: WannierHR, *,
     return select(Hup, up_labels), select(Hdn, down_labels)
 
 
+
+def spin_blocked_to_interleaved(h_up: np.ndarray, h_down: np.ndarray) -> np.ndarray:
+    """Permute diag(h_up,h_down) to (up0,down0,up1,down1,...) coordinates.
+
+    Only a one-particle change of basis ordering; not a correlated two-body
+    model and NOT a valid spin-independent ``effective_hamiltonian`` payload.
+    """
+    up, down = np.asarray(h_up, dtype=complex), np.asarray(h_down, dtype=complex)
+    if up.ndim != 2 or up.shape[0] == 0 or up.shape != down.shape or up.shape[0] != up.shape[1]:
+        raise ValueError("Both spin blocks must be nonempty equally sized square matrices")
+    if any(not np.all(np.isfinite(h)) or np.max(np.abs(h - h.conj().T)) > 1e-9
+           for h in (up, down)):
+        raise ValueError("Both spin blocks must be finite and Hermitian")
+    m = up.shape[0]
+    result = np.zeros((2*m, 2*m), dtype=complex)
+    result[0::2, 0::2] = up
+    result[1::2, 1::2] = down
+    return result
+
 def one_particle_eigenpairs(h: np.ndarray, n_electrons: int | None = None) -> dict:
     """Orbital eigenvectors (columns) and optional Slater state projector.
 
