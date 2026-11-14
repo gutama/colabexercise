@@ -98,7 +98,11 @@ def main():
         notebook = nbformat.read(project / "notebooks" / filename, as_version=4)
         nbformat.validate(notebook)
         client = NotebookClient(notebook, timeout=1200, kernel_name="python3",
-                                extra_arguments=["--IPKernelApp.kernel_class=ipykernel.ipkernel.IPythonKernel"],
+                                extra_arguments=[
+                                    "--IPKernelApp.kernel_class=ipykernel.ipkernel.IPythonKernel",
+                                    "--IPKernelApp.extensions=[]",
+                                    "--IPKernelApp.extra_extensions=[]",
+                                ],
                                 resources={"metadata": {"path": str(project)}})
         try:
             client.execute()
