@@ -61,12 +61,19 @@ def run_pyscf(config: PySCFConfig, output: Path) -> dict:
     else:
         mf = dft.RKS(mol) if mol.spin == 0 else dft.ROKS(mol)
         mf.xc = config.xc
+    if config.density_fitting or config.device == "gpu":
+        mf = mf.density_fit()
+    gpu = None
     if config.device == "gpu":
         try:
-            import gpu4pyscf  # noqa: F401
+            from .colab_runtime import gpu_info
+            gpu = gpu_info()
         except ImportError as exc:
             raise RuntimeError("GPU requested; install a compatible GPU4PySCF/CUDA stack") from exc
-        mf = mf.density_fit().to_gpu()
+        mf = mf.to_gpu()
+        if not type(mf).__module__.startswith("gpu4pyscf."):
+            raise RuntimeError("GPU conversion did not return a GPU4PySCF solver")
+    implementation = type(mf).__module__ + "." + type(mf).__name__
     mf.max_cycle = config.max_cycle
     mf.conv_tol = config.convergence_tolerance
     energy = float(mf.kernel())
@@ -89,6 +96,11 @@ def run_pyscf(config: PySCFConfig, output: Path) -> dict:
         "schema_version": 1,
         "backend": "pyscf",
         "pyscf_version": pyscf.__version__,
+        "scf_device": config.device,
+        "scf_implementation": implementation,
+        "density_fitting": config.density_fitting or config.device == "gpu",
+        "gpu": gpu,
+        "integral_export_device": "cpu",
         "config": config.model_dump(mode="json"),
         "energy_hartree": energy,
         "nuclear_repulsion_hartree": float(mol.energy_nuc()),

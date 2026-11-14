@@ -26,6 +26,7 @@ class PySCFConfig(StrictModel):
     method: Literal["hf", "dft"] = "hf"
     xc: str = "pbe"
     device: Literal["cpu", "gpu"] = "cpu"
+    density_fitting: bool = False
     max_cycle: int = Field(default=100, ge=1)
     convergence_tolerance: float = Field(default=1e-9, gt=0)
 
