@@ -1,6 +1,7 @@
 """Colab setup with stdlib only; CUDA dependencies live in an isolated venv."""
 import ctypes
 from functools import lru_cache
+from importlib import import_module
 import importlib.metadata
 import json
 from pathlib import Path
@@ -97,9 +98,8 @@ def gpu_info():
         name = name.decode()
     if cutensor.cutensor is None:
         # Surface the loader error hidden by GPU4PySCF's optional-engine import.
-        import importlib
-        importlib.import_module("cupy_backends.cuda.libs.cutensor")
-        importlib.import_module("cupyx.cutensor")
+        import_module("cupy_backends.cuda.libs.cutensor")
+        import_module("cupyx.cutensor")
         raise RuntimeError("cuTENSOR did not load; check the pinned CuPy/cuTENSOR packages")
     vector = cp.arange(8, dtype=cp.float64)
     if float(cp.dot(vector, vector).get()) != 140.0:
