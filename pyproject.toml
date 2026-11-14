@@ -26,7 +26,7 @@ gpu-cuda13 = [
   "gpu4pyscf-cuda13x==1.9.2",
   "gpu4pyscf-libxc-cuda13x==0.9.0",
   "cupy-cuda13x==14.0.1",
-  "cutensor-cu13==2.3.1",
+  "cutensor-cu13==2.4.1",
 ]
 
 [project.scripts]

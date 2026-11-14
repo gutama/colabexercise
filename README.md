@@ -49,7 +49,8 @@ matching `gpu-cuda12` or `gpu-cuda13` project extra in an isolated environment
 at `/content/colabexercise-gpu-env`. Each extra pins GPU4PySCF, CuPy, cuTENSOR
 and GPU libxc together; the active notebook's NumPy/CuPy packages are not
 replaced. CUDA 12 uses the upstream-recommended CuPy 13.4.1/cuTENSOR 2.2.0
-pair; CUDA 13 uses CuPy 14.0.1/cuTENSOR 2.3.1. A real CUDA dot product and
+pair; CUDA 13 uses CuPy 14.0.1/cuTENSOR 2.4.1, matching that CuPy wheel's build.
+A real CUDA dot product and
 cuTENSOR load check run before SCF. Explicit GPU requests fail if GPU setup
 is unavailable.
 
