@@ -131,10 +131,13 @@ def main():
     evidence = json.loads(next(output.glob("lihbn-*/evidence.json")).read_text())
     if evidence["evidence_tier"] != "synthetic_demo":
         raise RuntimeError("The unattended verification must run synthetic Li-hBN DEMO only")
-    try:
-        is_colab = Path("/content").is_dir() and importlib.util.find_spec("google.colab") is not None
-    except ModuleNotFoundError:
-        is_colab = False
+    # Isolated GPU environments do not install the google.colab Python package.
+    is_colab = bool(os.environ.get("COLAB_RELEASE_TAG"))
+    if not is_colab:
+        try:
+            is_colab = Path("/content").is_dir() and importlib.util.find_spec("google.colab") is not None
+        except ModuleNotFoundError:
+            is_colab = False
     report = {
         "status": "passed", "observed_at_utc": datetime.now(timezone.utc).isoformat(),
         "runtime": "google_colab" if is_colab else "local",
