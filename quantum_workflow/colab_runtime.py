@@ -49,13 +49,23 @@ def prepare_environment(project, device, env_dir, *, with_tests=False):
         extras.append(cuda_extra())
         python = env_dir / "bin/python"
         if not python.is_file():
-            venv.EnvBuilder(with_pip=True).create(env_dir)
+            # Colab's Debian Python omits ensurepip; let the host pip target
+            # this interpreter, including installing pip in the new venv.
+            venv.EnvBuilder(with_pip=False).create(env_dir)
     elif device == "cpu":
         python = Path(sys.executable)
     else:
         raise ValueError("Resolve auto to cpu or gpu before installing")
     requirement = str(project) + ("[" + ",".join(extras) + "]" if extras else "")
-    subprocess.run([str(python), "-m", "pip", "install", "-e", requirement], check=True)
+    command = [sys.executable, "-m", "pip"]
+    if device == "gpu":
+        command += ["--python", str(python)]
+    command += ["install", "pip", "-e", requirement]
+    child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    for line in child.stdout:
+        print(line, end="", flush=True)
+    if child.wait():
+        raise RuntimeError(f"Environment installation failed for {device}; see pip output above")
     return python
 
 
