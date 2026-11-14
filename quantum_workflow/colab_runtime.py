@@ -43,13 +43,26 @@ def cuda_extra():
     return "gpu-cuda" + match.group(1)
 
 
+def check_gpu_architecture(extra):
+    if extra != "gpu-cuda13":
+        return
+    probe = subprocess.run(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader"],
+                           capture_output=True, text=True, check=True, timeout=30)
+    capability = float(probe.stdout.strip().splitlines()[0])
+    if capability < 8.0:
+        raise RuntimeError("The pinned CUDA 13 GPU4PySCF wheel requires compute capability 8.0 or newer. "
+                           "Choose an L4 or A100 Colab GPU; T4 requires a CUDA 12 runtime.")
+
+
 def prepare_environment(project, device, env_dir, *, with_tests=False):
     """Return an interpreter without replacing the active notebook's packages."""
     project, env_dir = Path(project).resolve(), Path(env_dir).resolve()
     extras = ["test"] if with_tests else []
     if device == "gpu":
         resolve_device("gpu")
-        extras.append(cuda_extra())
+        extra = cuda_extra()
+        check_gpu_architecture(extra)
+        extras.append(extra)
         python = env_dir / "bin/python"
         if not python.is_file():
             # Colab's Debian Python omits ensurepip; let the host pip target
@@ -87,6 +100,7 @@ def gpu_info():
     """Verify CUDA execution and cuTENSOR loading in the selected interpreter."""
     import cupy as cp
     major = cp.cuda.runtime.runtimeGetVersion() // 1000
+    check_gpu_architecture(f"gpu-cuda{major}")
     _preload_cutensor(major)
     import gpu4pyscf
     from gpu4pyscf.lib import cutensor

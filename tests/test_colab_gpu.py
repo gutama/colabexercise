@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from pyscf import fci
 
-from quantum_workflow.colab_runtime import cuda_extra, resolve_device
+from quantum_workflow.colab_runtime import check_gpu_architecture, cuda_extra, resolve_device
 from quantum_workflow.workflow import load_config, run
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,6 +42,13 @@ def test_missing_gpu_dependencies_do_not_produce_cpu_result(tmp_path, monkeypatc
     with pytest.raises(RuntimeError, match="GPU requested"):
         run(config, tmp_path / "missing")
     assert not (tmp_path / "missing/summary.json").exists()
+
+
+def test_cuda13_t4_is_rejected_with_supported_gpu_guidance(monkeypatch):
+    monkeypatch.setattr("quantum_workflow.colab_runtime.subprocess.run", lambda *a, **kw:
+                        SimpleNamespace(stdout="7.5\n"))
+    with pytest.raises(RuntimeError, match="L4 or A100"):
+        check_gpu_architecture("gpu-cuda13")
 
 
 @pytest.mark.parametrize("method", ["hf", "dft"])

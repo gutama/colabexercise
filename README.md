@@ -9,7 +9,7 @@ interactive cloud runs.
 [Open molecular workflow in Colab](https://colab.research.google.com/github/gutama/colabexercise/blob/main/notebooks/colab.ipynb)
 · [Open synthetic Li-hBN demo in Colab](https://colab.research.google.com/github/gutama/colabexercise/blob/main/notebooks/lihbn_reproduction.ipynb)
 
-Select **T4 GPU** (or another NVIDIA GPU) under **Runtime → Change runtime type**,
+Select **L4 GPU** (or A100) under **Runtime → Change runtime type**,
 then **Runtime → Run all**. The molecular notebook automatically selects
 GPU4PySCF on GPU runtimes and CPU on CPU runtimes, installs the package, and
 runs H₂/STO-3G. Set `COLABEXERCISE_DEVICE=gpu` to require GPU execution, or
@@ -41,7 +41,7 @@ Use the branch name in place of `main` when reviewing unpublished-to-main code.
 For GPU execution, allocate a GPU **and** select GPU in the verification script:
 
 ```bash
-colab run --gpu T4 --timeout 1800 scripts/verify_colab.py --ref codex/colab-runtime --device gpu --output /content/verified-gpu
+colab run --gpu L4 --timeout 1800 scripts/verify_colab.py --ref codex/colab-runtime --device gpu --output /content/verified-gpu
 ```
 
 The GPU setup detects the actual `nvcc` toolkit version and installs the
@@ -53,6 +53,10 @@ pair; CUDA 13 uses CuPy 14.0.1/cuTENSOR 2.4.1, matching that CuPy wheel's build.
 A real CUDA dot product and
 cuTENSOR load check run before SCF. Explicit GPU requests fail if GPU setup
 is unavailable.
+
+On Colab's current CUDA 13 image, the GPU4PySCF wheel contains kernels for
+compute capability 8.0 and newer. Use **L4 or A100**; a T4 (7.5) is rejected
+before installation. T4 use requires a CUDA 12 runtime and its matching extra.
 
 GPU verification exercises both HF and PBE DFT against CPU **density-fitting**
 references, and independently solves FCI using the exported H₂ integrals.
