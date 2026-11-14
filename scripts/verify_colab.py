@@ -1,4 +1,4 @@
-"""Bootstrap and verify the CPU workflow on Colab; uses only stdlib until install.
+"""Bootstrap and verify the CPU or GPU workflow on Colab.
 
 Run with `colab run --timeout 1800 scripts/verify_colab.py` or directly in a VM.
 An existing checkout can be supplied with --project-dir (including unpublished
@@ -25,6 +25,7 @@ def main():
     parser.add_argument("--ref", default="main", help="Branch/tag to clone if no checkout exists")
     parser.add_argument("--output", type=Path, help="New or empty results directory")
     parser.add_argument("--qe", action="store_true", help="Also install and run the optional QE CPU example")
+    parser.add_argument("--device", choices=("cpu", "gpu"), default="cpu", help="PySCF SCF device")
     parser.add_argument("--skip-install", action="store_true", help="Use dependencies already installed")
     args = parser.parse_args()
     if not (3, 10) <= sys.version_info[:2] < (3, 14):
@@ -38,6 +39,19 @@ def main():
         ], check=True)
     if not (project / "pyproject.toml").is_file():
         parser.error(f"No project checkout at {project}")
+    sys.path.insert(0, str(project))
+    if args.device == "gpu" and not args.skip_install:
+        # A fresh interpreter avoids replacing NumPy/CuPy under Colab's kernel.
+        from quantum_workflow.colab_runtime import prepare_environment
+        python = prepare_environment(project, "gpu", project.parent / "colabexercise-gpu-env", with_tests=True)
+        env = os.environ.copy()
+        env["PATH"] = str(python.parent) + os.pathsep + env.get("PATH", "")
+        child = subprocess.Popen([str(python), str(project / "scripts/verify_colab.py"),
+                                  *sys.argv[1:], "--skip-install"], env=env,
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        for line in child.stdout:
+            print(line, end="", flush=True)
+        raise SystemExit(child.wait())
     output = args.output.resolve() if args.output else Path(tempfile.mkdtemp(prefix="colab-results-"))
     output.mkdir(parents=True, exist_ok=True)
     if any(output.iterdir()):
@@ -47,6 +61,7 @@ def main():
         os.environ[key] = "1"
     os.environ["COLABEXERCISE_OUTPUT"] = str(output)
     os.environ["COLABEXERCISE_RUN_QE"] = "1" if args.qe else "0"
+    os.environ["COLABEXERCISE_DEVICE"] = args.device
     # Jupyter writes its connection files here on restricted/local machines too.
     os.environ.setdefault("JUPYTER_RUNTIME_DIR", str(output / "jupyter-runtime"))
     if not args.skip_install:
@@ -102,7 +117,16 @@ def main():
             ints["h1"], ints["eri"], h2["num_spatial_orbitals"],
             (h2["num_alpha"], h2["num_beta"]), ecore=h2["nuclear_repulsion_hartree"],
         )
-    if abs(h2["energy_hartree"] - (-1.1167593074)) > 1e-8 or abs(energy - (-1.1372838345)) > 1e-8:
+    cpu_reference = None
+    if args.device == "gpu":
+        from quantum_workflow.workflow import load_config, run
+        reference_config = load_config(project / "examples/h2-pyscf.json")
+        reference_config.density_fitting = True
+        cpu_reference = run(reference_config, output / "h2-cpu-density-fit")
+        if h2["scf_device"] != "gpu" or not h2["scf_implementation"].startswith("gpu4pyscf."):
+            raise RuntimeError("GPU verification must use an actual GPU4PySCF SCF solver")
+    expected_scf = cpu_reference["energy_hartree"] if cpu_reference else -1.1167593074
+    if not np.isclose(h2["energy_hartree"], expected_scf, atol=1e-8, rtol=0) or not np.isclose(energy, -1.1372838345, atol=1e-8, rtol=0):
         raise RuntimeError("H2/STO-3G (0.74 Angstrom) RHF/FCI anchors failed")
     evidence = json.loads(next(output.glob("lihbn-*/evidence.json")).read_text())
     if evidence["evidence_tier"] != "synthetic_demo":
@@ -118,6 +142,8 @@ def main():
         "source_commit": commit, "source_dirty": dirty, "source_sha256": source_hash.hexdigest(),
         "notebooks": completed, "pytest_log": "pytest.log",
         "h2_rhf_hartree": h2["energy_hartree"], "h2_fci_hartree": float(energy),
+        "scf_device": h2["scf_device"], "gpu": h2["gpu"],
+        "cpu_density_fit_reference_hartree": cpu_reference["energy_hartree"] if cpu_reference else None,
         "lihbn_evidence_tier": evidence["evidence_tier"],
         "lihbn_sector": evidence["sector"], "qe_executed": args.qe,
     }

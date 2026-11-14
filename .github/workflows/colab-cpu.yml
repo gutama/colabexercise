@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'quantum_workflow/**'
+      - 'examples/**'
       - 'lihbn_repro/**'
       - 'notebooks/**'
       - 'scripts/verify_colab.py'
@@ -13,6 +14,7 @@ on:
   pull_request:
     paths:
       - 'quantum_workflow/**'
+      - 'examples/**'
       - 'lihbn_repro/**'
       - 'notebooks/**'
       - 'scripts/verify_colab.py'

@@ -9,8 +9,11 @@ interactive cloud runs.
 [Open molecular workflow in Colab](https://colab.research.google.com/github/gutama/colabexercise/blob/main/notebooks/colab.ipynb)
 · [Open synthetic Li-hBN demo in Colab](https://colab.research.google.com/github/gutama/colabexercise/blob/main/notebooks/lihbn_reproduction.ipynb)
 
-Select a **CPU runtime**, then **Runtime → Run all**. The molecular notebook
-installs the package and runs H₂/STO-3G. Set `RUN_QE=True` in its optional QE
+Select **T4 GPU** (or another NVIDIA GPU) under **Runtime → Change runtime type**,
+then **Runtime → Run all**. The molecular notebook automatically selects
+GPU4PySCF on GPU runtimes and CPU on CPU runtimes, installs the package, and
+runs H₂/STO-3G. Set `COLABEXERCISE_DEVICE=gpu` to require GPU execution, or
+`cpu` to select CPU explicitly. Set `RUN_QE=True` in its optional QE
 cell to install QE 7.6 and run the separate plane-wave example. Browser downloads
 are opt-in with `DOWNLOAD_RESULTS=True`. The Li-hBN notebook defaults to
 synthetic data; original private materials are needed for its REAL mode.
@@ -34,6 +37,36 @@ exported H₂ integrals against RHF/FCI reference energies at **0.74 Å**. It pr
 releases its VM automatically. The report labels Li-hBN output `synthetic_demo`.
 Add `--qe` after the script path to include the optional QE CPU calculation.
 Use the branch name in place of `main` when reviewing unpublished-to-main code.
+
+For GPU execution, allocate a GPU **and** select GPU in the verification script:
+
+```bash
+colab run --gpu T4 --timeout 1800 scripts/verify_colab.py --ref codex/colab-runtime --device gpu --output /content/verified-gpu
+```
+
+The GPU setup detects the actual `nvcc` toolkit version and installs the
+matching `gpu-cuda12` or `gpu-cuda13` project extra in an isolated environment
+at `/content/colabexercise-gpu-env`. Each extra pins GPU4PySCF, CuPy, cuTENSOR
+and GPU libxc together; the active notebook's NumPy/CuPy packages are not
+replaced. CUDA 12 uses the upstream-recommended CuPy 13.4.1/cuTENSOR 2.2.0
+pair; CUDA 13 uses CuPy 14.0.1/cuTENSOR 2.3.1. A real CUDA dot product and
+cuTENSOR load check run before SCF. Explicit GPU requests fail if GPU setup
+is unavailable.
+
+GPU verification exercises both HF and PBE DFT against CPU **density-fitting**
+references, and independently solves FCI using the exported H₂ integrals.
+The summary records the GPU model, CUDA and package versions, SCF solver
+class and device, and the CPU integral-export stage. To run another GPU
+calculation after setup:
+
+```bash
+/content/colabexercise-gpu-env/bin/python -m quantum_workflow.cli examples/h2-pyscf-gpu.json --output /content/my-gpu-results
+```
+
+GPU acceleration applies to PySCF SCF/DFT. The QE installation remains a CPU
+build, and the synthetic Li-hBN NumPy demo and full molecular-integral export
+remain CPU calculations. The small H₂ check validates correctness; it does
+not establish a speedup for such a small molecule.
 
 To retrieve executed notebooks, integrals, evidence JSON and logs, keep a
 uniquely named runtime until download finishes:
@@ -67,8 +100,8 @@ server runs on its own host; transfer configuration and results manually when
 using Colab. Colab runtimes are temporary. GPU availability, CUDA versions and
 usage limits vary; GPU4PySCF support depends on the system and calculation.
 No TPU support is claimed. GPU mode uses density fitting, which can differ
-slightly from CPU's default exact SCF. GPU mode has not been validated in this
-repository on actual GPU hardware.
+slightly from CPU's default exact SCF. Set `density_fitting=true` for a CPU
+calculation using the same approximation.
 
 ## Local setup
 
@@ -87,9 +120,9 @@ the output directory and choose a different one or remove its contents yourself.
 Configs describe Angstrom coordinates, molecular charge and `spin = Nα − Nβ`
 (not multiplicity). PySCF uses restricted HF/KS for spin zero and ROHF/ROKS for
 open-shell cases. Set `"method": "dft"` and e.g. `"xc": "pbe"` to use DFT.
-Use `"device": "gpu"` only after installing GPU4PySCF for your CUDA version
-following its [installation guide](https://pyscf.org/user/gpu.html); missing or
-unsupported GPU functionality produces an error, not a CPU fallback.
+Use `"device": "gpu"` with the Colab GPU environment configured above, or
+install the matching `.[gpu-cuda12]`/`.[gpu-cuda13]` extra in a separate local
+environment. Missing or unsupported GPU functionality produces an error.
 
 ## Quantum ESPRESSO
 
