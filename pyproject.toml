@@ -15,14 +15,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=8", "nbformat>=5"]
+test = ["pytest>=8", "nbformat>=5", "nbclient>=0.10", "ipykernel>=6", "pandas>=2"]
 
 [project.scripts]
 quantum-workflow = "quantum_workflow.cli:main"
 quantum-workflow-mcp = "quantum_workflow.mcp_server:main"
 
 [tool.setuptools.packages.find]
-include = ["quantum_workflow*"]
+include = ["quantum_workflow*", "lihbn_repro*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

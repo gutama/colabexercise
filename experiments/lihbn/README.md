@@ -4,13 +4,14 @@
 
 ## Start in Google Colab
 
-[Open the Li-hBN notebook on this branch](https://colab.research.google.com/github/gutama/colabexercise/blob/feat/lihbn-colab-reproduction/notebooks/lihbn_reproduction.ipynb)
+[Open the Li-hBN notebook](https://colab.research.google.com/github/gutama/colabexercise/blob/main/notebooks/lihbn_reproduction.ipynb)
 
-The feature branch is published on GitHub; open the Colab link directly.
-The notebook defaults to cloning the published branch automatically, with a
-manual ZIP fallback. GitHub Actions executes the notebook from an existing
-checkout, so CI success does **not** test a fresh Google Colab bootstrap.
-A live Colab runtime validation is still outstanding. Alternatively, set `SOURCE_MODE="ZIP"` to upload the offline reproduction package. Run on a **CPU runtime**. Its default mode is `DEMO`, creating two small **synthetic** spin-resolved Wannier90-format files and running deterministic tests. Nothing requires a GPU or launches a 20-day computation. It saves inputs' SHA-256, versions, eigenvectors and numerical checks in a private Colab output directory.
+The notebook defaults to cloning `main` automatically, with a manual ZIP
+fallback. Set `COLABEXERCISE_REF` to use another published branch.
+GitHub Actions executes the notebook from an existing checkout; CI success
+does **not** establish execution in a real Google Colab runtime. See the root
+README for remote execution with `scripts/verify_colab.py` and result capture.
+Alternatively, set `SOURCE_MODE="ZIP"` to upload the offline reproduction package. Run on a **CPU runtime**. Its default mode is `DEMO`, creating two small **synthetic** spin-resolved Wannier90-format files and running deterministic tests. Nothing requires a GPU or launches a 20-day computation. It saves inputs' SHA-256, versions, eigenvectors and numerical checks in a private Colab output directory.
 
 Switch `DATA_MODE='REAL'` only after mounting Google Drive or uploading the original per-spin Wannier90 `*_hr.dat`. Use paths to the specific 97-Wannier/149-R files. Original records are not put into this public repository. Output of H(R=0) and the full Fourier H(k=Gamma) are **different**; the notebook defaults to the note's H(R=0) convention. Use `H_MODE='gamma'` explicitly to make a different comparison.
 
@@ -44,11 +45,13 @@ The notebook also provides optional read-only checks for:
 ## Local execution and tests
 
 ```bash
-python -m pip install numpy scipy pandas pytest nbformat nbclient ipykernel
-PYTHONPATH=. python -m pytest tests/test_lihbn_repro.py -q
+python -m pip install -e '.[test]'
+OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python -m pytest tests/test_lihbn_repro.py -q
 ```
 
-The notebook imports `lihbn_repro` from the cloned repo directly without changing the existing PySCF/QE workflow. Everything synthetic is explicitly labeled; no calculation is performed asynchronously or on external servers by this package.
+The package installation includes `lihbn_repro`; the notebook also supports
+imports directly from the cloned repo. Everything synthetic is explicitly
+labeled. The Colab CLI launches remote execution only when invoked.
 
 ## Files
 

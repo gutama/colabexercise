@@ -6,6 +6,55 @@ calculation with Quantum ESPRESSO (QE). Control local runs through the CLI or
 an MCP stdio server; use the [Colab notebook](notebooks/colab.ipynb) for
 interactive cloud runs.
 
+[Open molecular workflow in Colab](https://colab.research.google.com/github/gutama/colabexercise/blob/main/notebooks/colab.ipynb)
+· [Open synthetic Li-hBN demo in Colab](https://colab.research.google.com/github/gutama/colabexercise/blob/main/notebooks/lihbn_reproduction.ipynb)
+
+Select a **CPU runtime**, then **Runtime → Run all**. The molecular notebook
+installs the package and runs H₂/STO-3G. Set `RUN_QE=True` in its optional QE
+cell to install QE 7.6 and run the separate plane-wave example. Browser downloads
+are opt-in with `DOWNLOAD_RESULTS=True`. The Li-hBN notebook defaults to
+synthetic data; original private materials are needed for its REAL mode.
+
+## Run remotely from a terminal or agent
+
+Install the [Google Colab CLI](https://github.com/googlecolab/colab-cli) on
+Linux/macOS with Python 3.12 or newer. The runtime project supports Python
+3.10–3.13. Complete the initial Google sign-in before sending any code:
+
+```bash
+uv tool install google-colab-cli
+colab sessions
+colab run --timeout 1800 scripts/verify_colab.py --ref main --output /content/verified
+```
+
+This allocates a CPU Colab VM, clones the selected published ref, installs
+`.[test]`, runs the complete test suite and both notebooks, and checks the
+exported H₂ integrals against RHF/FCI reference energies at **0.74 Å**. It prints
+`__COLABEXERCISE_OK__` only after success. `colab run` propagates failures and
+releases its VM automatically. The report labels Li-hBN output `synthetic_demo`.
+Add `--qe` after the script path to include the optional QE CPU calculation.
+Use the branch name in place of `main` when reviewing unpublished-to-main code.
+
+To retrieve executed notebooks, integrals, evidence JSON and logs, keep a
+uniquely named runtime until download finishes:
+
+```bash
+colab sessions  # Check that the name below is not already in use.
+colab run -s chemistry-unique --keep --timeout 1800 scripts/verify_colab.py --ref main --output /content/verified
+colab download -s chemistry-unique /content/verified.zip ./verified.zip
+colab stop -s chemistry-unique
+colab sessions
+```
+
+Stop the retained runtime even if execution or download fails. Colab files are
+temporary. `verification.json` records versions, source revision/fingerprint,
+energies, notebook completion and the synthetic evidence tier; `pytest.log`
+records individual tests. For a source snapshot already uploaded to the VM,
+pass `--project-dir /content/colabexercise` instead of cloning. The notebooks
+also accept `COLABEXERCISE_REF` and `COLABEXERCISE_OUTPUT` environment variables.
+CI runs the same CPU verification on a GitHub runner; a real Colab run must be
+reported separately.
+
 ## What runs where
 
 | Backend | CPU | NVIDIA GPU | TPU | Outputs |
