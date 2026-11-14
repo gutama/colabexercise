@@ -66,11 +66,10 @@ def run_pyscf(config: PySCFConfig, output: Path) -> dict:
     gpu = None
     if config.device == "gpu":
         try:
-            import gpu4pyscf  # noqa: F401
+            from .colab_runtime import gpu_info
+            gpu = gpu_info()
         except ImportError as exc:
             raise RuntimeError("GPU requested; install a compatible GPU4PySCF/CUDA stack") from exc
-        from .colab_runtime import gpu_info
-        gpu = gpu_info()
         mf = mf.to_gpu()
         if not type(mf).__module__.startswith("gpu4pyscf."):
             raise RuntimeError("GPU conversion did not return a GPU4PySCF solver")

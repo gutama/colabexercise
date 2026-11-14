@@ -1,4 +1,6 @@
 """Colab setup with stdlib only; CUDA dependencies live in an isolated venv."""
+import ctypes
+from functools import lru_cache
 import importlib.metadata
 import json
 from pathlib import Path
@@ -69,9 +71,22 @@ def prepare_environment(project, device, env_dir, *, with_tests=False):
     return python
 
 
+@lru_cache(maxsize=2)
+def _preload_cutensor(cuda_major):
+    # CuPy 14's cuda-pathfinder shortcut loads libcutensor and returns before
+    # loading libcutensorMg, although its backend links against both libraries.
+    # Keep handles alive and expose the symbols before GPU4PySCF imports it.
+    dist = importlib.metadata.distribution(f"cutensor-cu{cuda_major}")
+    return tuple(ctypes.CDLL(str(dist.locate_file("cutensor/lib/" + name)),
+                             mode=ctypes.RTLD_GLOBAL)
+                 for name in ("libcutensor.so.2", "libcutensorMg.so.2"))
+
+
 def gpu_info():
     """Verify CUDA execution and cuTENSOR loading in the selected interpreter."""
     import cupy as cp
+    major = cp.cuda.runtime.runtimeGetVersion() // 1000
+    _preload_cutensor(major)
     import gpu4pyscf
     from gpu4pyscf.lib import cutensor
 
@@ -90,7 +105,6 @@ def gpu_info():
     if float(cp.dot(vector, vector).get()) != 140.0:
         raise RuntimeError("CUDA numerical smoke check failed")
     cp.cuda.Stream.null.synchronize()
-    major = cp.cuda.runtime.runtimeGetVersion() // 1000
     return {
         "name": name, "device_id": device,
         "compute_capability": f"{props['major']}.{props['minor']}",
