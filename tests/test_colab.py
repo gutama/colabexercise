@@ -76,6 +76,29 @@ def test_refuses_before_renting_anything(fake_colab, tmp_path, monkeypatch):
     assert not any(line.startswith("new") for line in calls(remote))
 
 
+def test_existing_session_is_untouched(fake_colab, tmp_path):
+    shim, remote = fake_colab
+    existing = ["qw-taken", "qw-taken-extra"]
+    (remote / "sessions.json").write_text(json.dumps(existing))
+    with pytest.raises(ColabError, match="already exists"):
+        submit(ROOT / "examples/h2-pyscf.json", tmp_path / "results", session="qw-taken",
+               source="preinstalled", colab_bin=str(shim))
+    # Refusing an existing name must neither allocate nor stop any runtime.
+    assert calls(remote) == ["sessions"]
+    assert sessions(remote) == existing
+    assert not (tmp_path / "results").exists()
+
+
+@pytest.mark.parametrize("name", ["qw-taken", "colab"])
+def test_similar_session_name_or_cli_banner_does_not_block_new_job(fake_colab, tmp_path, name):
+    shim, remote = fake_colab
+    (remote / "sessions.json").write_text(json.dumps(["qw-taken-extra"]))
+    submit(ROOT / "examples/h2-pyscf.json", tmp_path / "results", session=name,
+           source="preinstalled", colab_bin=str(shim))
+    assert f"new -s {name}" in calls(remote)
+    assert sessions(remote) == ["qw-taken-extra"]
+
+
 def test_dry_run_prints_commands_only(fake_colab, tmp_path, capsys):
     shim, remote = fake_colab
     assert submit(ROOT / "examples/h2-pyscf.json", tmp_path / "out", session="qw-dry",
@@ -183,3 +206,33 @@ def test_qe_job_stages_pseudopotentials_and_rewrites_paths(tmp_path):
     assert (staging / "H.upf").read_text() == "same filename as H, different file"
     assert (staging / "H.H.upf").read_text() == "H pseudo"
     assert sorted(f.name for f in files) == ["H.H.upf", "H.upf", "config.json"]
+
+
+@pytest.mark.parametrize("basename", ["shared.upf", "config.json"])
+def test_qe_staging_preserves_each_species_through_repeated_name_collisions(tmp_path, basename):
+    from quantum_workflow.colab import stage_job
+
+    names = {"Li": basename, "O": f"H.{basename}", "H": basename}
+    masses = {"Li": 6.94, "O": 16.0, "H": 1.008}
+    data = json.loads((ROOT / "examples/h2-qe.json").read_text())
+    data["molecule"]["atoms"] = [
+        {"element": element, "xyz": [i + 1, 1, 1]} for i, element in enumerate(names)
+    ]
+    data["pseudopotentials"] = {}
+    for element, name in names.items():
+        folder = tmp_path / element
+        folder.mkdir()
+        (folder / name).write_bytes(f"{element} original pseudopotential".encode())
+        data["pseudopotentials"][element] = {"path": f"{element}/{name}", "mass": masses[element]}
+    config = tmp_path / "job.json"
+    config.write_text(json.dumps(data))
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    files, _ = stage_job(config, staging, "preinstalled", "qubit")
+    staged = json.loads((staging / "config.json").read_text())["pseudopotentials"]
+    assert len({item["path"] for item in staged.values()}) == len(names)
+    assert len(set(files)) == len(files)
+    for element, item in staged.items():
+        assert (staging / item["path"]).read_bytes() == (
+            tmp_path / element / names[element]
+        ).read_bytes()

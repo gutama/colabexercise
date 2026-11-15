@@ -13,10 +13,10 @@ from ..config import QEConfig
 from ..provenance import write_summary
 
 _FUNCTIONAL_ALIASES = {
-    "PBE": ("PBE", "PBX PBC", "PBXPBC"),
-    "PBESOL": ("PBESOL", "PSX PSC"),
-    "PZ": ("PZ", "SLA PZ", "LDA"),
-    "LDA": ("PZ", "SLA PZ", "LDA"),
+    "PBE": ("PBE", "PBX PBC", "PBXPBC", "SLA PW PBX PBC"),
+    "PBESOL": ("PBESOL", "PSX PSC", "SLA PW PSX PSC"),
+    "PZ": ("PZ", "SLA PZ", "LDA", "SLA PZ NOGX NOGC"),
+    "LDA": ("PZ", "SLA PZ", "LDA", "SLA PZ NOGX NOGC"),
 }
 
 
@@ -118,7 +118,13 @@ def _upf_functional(path: Path) -> str | None:
     return " ".join(match.group(1).split()) if match else None
 
 
+def _normalize_functional(name: str) -> str:
+    return "".join(name.upper().replace("-", "").split())
+
+
 def _functional_matches(xc: str, functional: str) -> bool:
-    normalized = " ".join(functional.upper().replace("-", " ").split())
-    candidates = _FUNCTIONAL_ALIASES.get(xc.upper(), (xc.upper(),))
-    return any(alias in normalized for alias in candidates)
+    requested = _normalize_functional(xc)
+    candidates = _FUNCTIONAL_ALIASES.get(requested, (requested,))
+    return _normalize_functional(functional) in {
+        _normalize_functional(alias) for alias in candidates
+    }

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import secrets
 import shlex
 import shutil
@@ -103,9 +104,14 @@ def stage_job(config_path: Path, staging: Path, source: str, extras: str) -> tup
     if isinstance(config, QEConfig):
         used = {"config.json"}
         for element, pseudo in config.pseudopotentials.items():
-            name = pseudo.path.name
+            original_name = pseudo.path.name
+            name = original_name
             if name in used:  # two elements sharing a filename: disambiguate
                 name = f"{element}.{name}"
+            suffix = 1
+            while name in used:
+                name = f"{element}.{suffix}.{original_name}"
+                suffix += 1
             used.add(name)
             staged = staging / name
             shutil.copyfile(pseudo.path, staged)
@@ -168,7 +174,10 @@ def submit(config_path: str | Path, output_dir: str | Path, *, gpu: str | None =
             "The colab CLI is not authenticated. Run `colab sessions` once in a terminal "
             "and complete the Google sign-in, then retry."
         )
-    if session in listing.split():
+    # Real CLI records are "[name] endpoint | Hardware: ...". Matching the
+    # record shape also keeps banners such as "[colab] ..." out of this set.
+    active_sessions = re.findall(r"^\[(.+)\]\s+\S+\s+\|\s+Hardware:", listing, re.MULTILINE)
+    if session in active_sessions:
         raise ColabError(f"Session {session!r} already exists; reusing a name orphans its VM")
 
     with tempfile.TemporaryDirectory(prefix="qw-colab-") as tmp:

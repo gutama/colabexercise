@@ -11,6 +11,7 @@ from mcp.client.stdio import stdio_client
 from pyscf import fci
 from pyscf.tools import fcidump
 
+from quantum_workflow.backends.qe_backend import _functional_matches
 from quantum_workflow.cli import main as cli_main
 from quantum_workflow.config import PySCFConfig, QEConfig
 from quantum_workflow.workflow import load_config, parse_config, run
@@ -175,6 +176,43 @@ def test_qe_input_and_convergence_check(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="did not converge"):
         run(config, tmp_path / "failed")
     assert not (tmp_path / "failed/summary.json").exists()
+
+
+@pytest.mark.parametrize("xc,functional,expected", [
+    ("PBE", "SLA PW PBX PBC", True),  # header from the real H PBE PAW example
+    ("PBESOL", "SLA PW PSX PSC", True),
+    ("LDA", "SLA PZ NOGX NOGC", True),
+    ("pbe-sol", " PBEsol ", True),
+    ("PBE", "PBESOL", False),
+    ("PBE", "PBE0", False),
+    ("PBE", "REVPBE", False),
+    ("PBE", "SLA PW PBX PBC0", False),
+])
+def test_qe_functional_names_and_full_upf_codes(xc, functional, expected):
+    assert _functional_matches(xc, functional) is expected
+
+
+@pytest.mark.parametrize("functional,mismatch", [
+    ("PBESOL", True), ("PBE0", True), ("SLA PW PBX PBC", False),
+])
+def test_qe_summary_reports_functional_mismatches(tmp_path, monkeypatch, functional, mismatch):
+    pseudo = tmp_path / "H.upf"
+    pseudo.write_text(f'<UPF version="2.0.1"><PP_HEADER functional="{functional}" /></UPF>')
+    config = load_config(ROOT / "examples/h2-qe.json")
+    config.pseudopotentials["H"].path = pseudo
+    backend = "quantum_workflow.backends.qe_backend"
+    monkeypatch.setattr(f"{backend}.shutil.which", lambda _: "/mock/pw.x")
+
+    def fake_run(args, cwd, stdout, stderr, check):
+        stdout.write("convergence has been achieved\n! total energy = -2.0 Ry\nJOB DONE.\n")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(f"{backend}.subprocess.run", fake_run)
+    summary = run(config, tmp_path / "qe")
+    assert summary["pseudopotential_functionals"] == {"H": functional}
+    assert bool(summary["warnings"]) is mismatch
+    if mismatch:
+        assert functional in summary["warnings"][0] and "PBE" in summary["warnings"][0]
 
 
 def test_config_rejects_bad_species_and_resolves_pseudo_paths():

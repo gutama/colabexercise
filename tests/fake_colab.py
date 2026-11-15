@@ -43,7 +43,11 @@ def main() -> int:
               "  https://accounts.google.com/o/oauth2/auth?...\nAborted.")
         return 1
     if args.command == "sessions":
-        print("\n".join(f"{name}  [CPU]" for name in sessions) or "No active sessions")
+        print("[colab] A new version of Colab CLI is available.")
+        print("\n".join(
+            f"[{name}] endpoint-{name} | Hardware: CPU | Shape: Standard | Variant: DEFAULT"
+            for name in sessions
+        ) or "[colab] No active sessions found on server.")
         return 0
     if args.command == "new":
         sessions.append(args.session)
