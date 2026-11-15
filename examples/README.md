@@ -11,7 +11,7 @@ anchors the tests reproduce (STO-3G, PySCF 2.15, `OMP_NUM_THREADS=1`).
 | `h2o-cas44.json` | Active space CAS(4e,4o): frozen core, 8 qubits | −74.9630231385 | −74.9704543855 |
 | `h2o-dft-gpu.json` | B3LYP/def2-SVP on GPU4PySCF (density-fitted). Needs `--gpu L4` (or A100). Colab L4 result; equals CPU `density_fitting: true` to 6e-12 Ha | −76.3581519824 | — |
 | `h2-pyscf-gpu.json` | The H₂ check that `scripts/verify_colab.py --device gpu` compares against CPU density fitting | — | −1.1372838345 |
-| `h2-qe.json` | Quantum ESPRESSO gamma-point SCF; needs `pw.x` and the pseudopotential (see README) | — | — |
+| `h2-qe.json` | Quantum ESPRESSO gamma-point SCF; needs `pw.x` and the pseudopotential (see README). Colab, QE 7.6, PAW, 15 Å cell, 50/400 Ry: −2.3330744 Ry (PySCF all-electron PBE/aug-cc-pV5Z: −1.1666634 Ha) | −1.1665372 | — |
 
 ```bash
 quantum-workflow examples/h2o-cas44.json --check                 # validate, show defaults

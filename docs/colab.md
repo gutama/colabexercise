@@ -106,7 +106,8 @@ colab stop -s nb-job
 
 ## 5. Costs and limits
 
-- `colab usage` shows your compute-unit balance and burn rate. Run it before asking for large GPUs.
+- `colab usage` shows your compute-unit balance and burn rate. Run it before asking for large GPUs. Measured
+  example: 6.81 compute units/hour with an A100 and a CPU VM running at the same time (2026-11-15).
 - Supported shapes: `--gpu T4|L4|G4|H100|A100`, `--high-mem` (Colab Pro/Pro+). Availability depends on your
   tier; HTTP 400 means no entitlement (fall back to CPU), and 412 means too many sessions or no capacity.
 - GPU4PySCF's CUDA 13 wheels need compute capability ≥ 8.0: on Colab's current CUDA 13 image use **L4 or
@@ -132,3 +133,17 @@ live attempt also showed the failure path working: a remote error left `colab ex
 no sentinel, reported the failure and released the VM. In CI the driver is tested against a fake `colab` CLI
 (`tests/fake_colab.py`) that reproduces the CLI's command shapes, its exit-0-on-failure behaviour and the
 Colab kernel's launcher argv.
+
+Also on 2026-11-15 (CLI 0.7.5):
+
+| What | Result |
+|---|---|
+| `verify_colab.py --device gpu` on `--gpu L4` | Passed: NVIDIA L4, compute capability 8.9, CUDA 13 |
+| `verify_colab.py --device gpu` on `--gpu A100` | Passed: NVIDIA A100-SXM4-40GB, compute capability 8.0, CUDA 13 |
+| `--gpu H100` | Refused before allocation: *"Backend rejected accelerator 'H100'. You may not have quota or entitlement…"* (tried twice). Untested. |
+| `--gpu G4` | HTTP 503 *Service Unavailable* from the assignment endpoint on four tries over 25 minutes. Untested. |
+| `verify_colab.py --qe` (CPU) | `ensure_qe` installed QE 7.6 with micromamba; H₂/PBE PAW gave −2.3330744 Ry |
+| Driver with `examples/h2-qe.json` (CPU) | Same energy; the pseudopotential SHA-256 recorded on the VM matched the local file |
+
+A refused accelerator creates no VM, so nothing is billed. Retry a 503 later, and treat an entitlement refusal
+as final for that account.

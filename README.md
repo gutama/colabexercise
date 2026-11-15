@@ -142,7 +142,7 @@ recovery and the CLI's traps.
 
 | Piece | CPU | NVIDIA GPU | TPU | Notes |
 |---|---|---|---|---|
-| PySCF SCF (HF/DFT) | Yes | GPU4PySCF, density-fitted, pinned `gpu-cuda12`/`gpu-cuda13` extras | No | Integral export is always CPU and exact |
+| PySCF SCF (HF/DFT) | Yes | GPU4PySCF, density-fitted, pinned `gpu-cuda12`/`gpu-cuda13` extras; verified on Colab L4 and A100 | No | Integral export is always CPU and exact |
 | Active space, FCIDUMP, FCI/MP2/CCSD(T) references | Yes | — | No | Post-HF references need `method: "hf"`, CPU |
 | Qubit Hamiltonian (JW / BK) + checks | Yes | — | No | `qubit` extra (OpenFermion) |
 | ADAPT-VQE reference | Yes | — | No | Exact statevector, ≤ 20 qubits |
@@ -323,6 +323,9 @@ ruff check .
 CI: `tests.yml` runs lint and the suite on Python 3.10 and 3.13; `colab-cpu.yml` runs
 `scripts/verify_colab.py` (suite plus both notebooks, headless); `lihbn-repro.yml` covers the Li-hBN package.
 Scope and limits: small molecules. GPU SCF is checked by `verify_colab.py --device gpu` on a Colab GPU
-runtime (passed on an NVIDIA L4, CUDA 13, 2026-11-15: 67 tests plus both notebooks). The
-`quantum-workflow-colab` driver ran a B3LYP GPU job on a Colab L4 the same day; in CI it is tested against a
-fake `colab` CLI. These examples are starting points, not converged scientific predictions.
+runtime. On 2026-11-15 it passed on an NVIDIA L4 and an A100-SXM4-40GB (CUDA 13): the whole suite plus both
+notebooks. H100 was refused for this account (no entitlement) and G4 had no capacity (HTTP 503), so both are
+untested. `verify_colab.py --qe` installed QE 7.6 with `ensure_qe` on a Colab CPU VM and ran the H₂ example.
+The `quantum-workflow-colab` driver ran a B3LYP GPU job (L4) and the QE job (CPU) on Colab the same day; in CI
+it is tested against a fake `colab` CLI. These examples are starting points, not converged scientific
+predictions.
