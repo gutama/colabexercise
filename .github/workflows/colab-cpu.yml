@@ -1,0 +1,41 @@
+name: Colab CPU workflow
+
+on:
+  push:
+    paths:
+      - 'quantum_workflow/**'
+      - 'examples/**'
+      - 'lihbn_repro/**'
+      - 'notebooks/**'
+      - 'scripts/verify_colab.py'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - '.github/workflows/colab-cpu.yml'
+  pull_request:
+    paths:
+      - 'quantum_workflow/**'
+      - 'examples/**'
+      - 'lihbn_repro/**'
+      - 'notebooks/**'
+      - 'scripts/verify_colab.py'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - '.github/workflows/colab-cpu.yml'
+
+jobs:
+  cpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Run tests, both CPU notebooks, and independent H2 FCI check
+        run: python scripts/verify_colab.py --project-dir . --output '${{ runner.temp }}/colab-results'
+      - name: Save executed notebooks and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: colab-cpu-results
+          path: ${{ runner.temp }}/colab-results.zip

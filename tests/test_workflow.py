@@ -231,3 +231,20 @@ def test_mcp_stdio_runs_calculation(tmp_path):
                 })
                 assert error.isError
     asyncio.run(check())
+
+
+def test_cpu_density_fitting_warns_instead_of_failing_the_exact_integral_check(tmp_path):
+    config = parse_config({"backend": "pyscf", "molecule": H2, "density_fitting": True,
+                           "reference_methods": ["fci"], "qubit": {}})
+    summary = run(config, tmp_path / "df")
+    assert summary["scf_device"] == "cpu" and summary["density_fitting"]
+    assert summary["scf_implementation"].startswith("pyscf.")
+    assert summary["gpu"] is None and summary["integral_export_device"] == "cpu"
+    # Exported integrals are exact: FCI and the qubit sector check still hold exactly.
+    assert summary["reference_energies_hartree"]["fci"] == pytest.approx(-1.1373060358, abs=1e-9)
+    gap = summary["reference_determinant_energy_hartree"] - summary["energy_hartree"]
+    assert 0 < abs(gap) < 1e-3
+    assert any("density fitting" in warning for warning in summary["warnings"])
+    with pytest.raises(ValueError, match="exact integrals"):
+        parse_config({"backend": "pyscf", "molecule": H2, "density_fitting": True,
+                      "reference_methods": ["ccsd"]})

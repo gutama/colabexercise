@@ -32,15 +32,127 @@ quantum-workflow-adapt results/lih --max-operators 10
 Each run needs a **new or empty** output directory; `summary.json` is written last, so a directory without it
 is a failed or interrupted run.
 
+## Run on Colab
+
+[Open molecular workflow in Colab](https://colab.research.google.com/github/gutama/colabexercise/blob/main/notebooks/colab.ipynb)
+· [Open synthetic Li-hBN demo in Colab](https://colab.research.google.com/github/gutama/colabexercise/blob/main/notebooks/lihbn_reproduction.ipynb)
+
+Select **L4 GPU** (or A100) under **Runtime → Change runtime type**,
+then **Runtime → Run all**. The molecular notebook automatically selects
+GPU4PySCF on GPU runtimes and CPU on CPU runtimes, installs the package, and
+runs H₂/STO-3G. Set `COLABEXERCISE_DEVICE=gpu` to require GPU execution, or
+`cpu` to select CPU explicitly. Set `RUN_QE=True` in its optional QE
+cell to install QE 7.6 and run the separate plane-wave example. After the H₂ check,
+the notebook builds a qubit Hamiltonian (HeH⁺ by default; `COLABEXERCISE_QUBIT_EXAMPLE`
+picks another example or `none`) and runs the ADAPT-VQE reference on it. Browser downloads
+are opt-in with `DOWNLOAD_RESULTS=True`. The Li-hBN notebook defaults to
+synthetic data; original private materials are needed for its REAL mode.
+
+### Verify the environment from a terminal or agent
+
+Install the [Google Colab CLI](https://github.com/googlecolab/colab-cli) on
+Linux/macOS with Python 3.12 or newer. The runtime project supports Python
+3.10–3.13. Complete the initial Google sign-in before sending any code:
+
+```bash
+uv tool install google-colab-cli
+colab sessions
+colab run --timeout 1800 scripts/verify_colab.py --ref main --output /content/verified
+```
+
+This allocates a CPU Colab VM, clones the selected published ref, installs
+`.[test]`, runs the complete test suite and both notebooks, and checks the
+exported H₂ integrals against RHF/FCI reference energies at **0.74 Å**. It prints
+`__COLABEXERCISE_OK__` only after success. `colab run` propagates failures and
+releases its VM automatically. The report labels Li-hBN output `synthetic_demo`.
+Add `--qe` after the script path to include the optional QE CPU calculation.
+Use the branch name in place of `main` when reviewing unpublished-to-main code.
+
+For GPU execution, allocate a GPU **and** select GPU in the verification script:
+
+```bash
+colab run --gpu L4 --timeout 1800 scripts/verify_colab.py --ref codex/colab-runtime --device gpu --output /content/verified-gpu
+```
+
+The GPU setup detects the actual `nvcc` toolkit version and installs the
+matching `gpu-cuda12` or `gpu-cuda13` project extra in an isolated environment
+at `/content/colabexercise-gpu-env`. Each extra pins GPU4PySCF, CuPy, cuTENSOR
+and GPU libxc together; the active notebook's NumPy/CuPy packages are not
+replaced. CUDA 12 uses the upstream-recommended CuPy 13.4.1/cuTENSOR 2.2.0
+pair; CUDA 13 uses CuPy 14.0.1/cuTENSOR 2.4.1, matching that CuPy wheel's build.
+A real CUDA dot product and
+cuTENSOR load check run before SCF. Explicit GPU requests fail if GPU setup
+is unavailable.
+
+On Colab's current CUDA 13 image, the GPU4PySCF wheel contains kernels for
+compute capability 8.0 and newer. Use **L4 or A100**; a T4 (7.5) is rejected
+before installation. T4 use requires a CUDA 12 runtime and its matching extra.
+
+GPU verification exercises both HF and PBE DFT against CPU **density-fitting**
+references, and independently solves FCI using the exported H₂ integrals.
+The summary records the GPU model, CUDA and package versions, SCF solver
+class and device, and the CPU integral-export stage. To run another GPU
+calculation after setup:
+
+```bash
+/content/colabexercise-gpu-env/bin/python -m quantum_workflow.cli examples/h2-pyscf-gpu.json --output /content/my-gpu-results
+```
+
+GPU acceleration applies to PySCF SCF/DFT. The QE installation remains a CPU
+build, and the synthetic Li-hBN NumPy demo and full molecular-integral export
+remain CPU calculations. The small H₂ check validates correctness; it does
+not establish a speedup for such a small molecule.
+
+To retrieve executed notebooks, integrals, evidence JSON and logs, keep a
+uniquely named runtime until download finishes:
+
+```bash
+colab sessions  # Check that the name below is not already in use.
+colab run -s chemistry-unique --keep --timeout 1800 scripts/verify_colab.py --ref main --output /content/verified
+colab download -s chemistry-unique /content/verified.zip ./verified.zip
+colab stop -s chemistry-unique
+colab sessions
+```
+
+Stop the retained runtime even if execution or download fails. Colab files are
+temporary. `verification.json` records versions, source revision/fingerprint,
+energies, notebook completion and the synthetic evidence tier; `pytest.log`
+records individual tests. For a source snapshot already uploaded to the VM,
+pass `--project-dir /content/colabexercise` instead of cloning. The notebooks
+also accept `COLABEXERCISE_REF` and `COLABEXERCISE_OUTPUT` environment variables.
+CI runs the same CPU verification on a GitHub runner; a real Colab run must be
+reported separately.
+
+### Run your own configs on a Colab VM
+
+```bash
+quantum-workflow-colab examples/lih-bk.json --output results/lih --dry-run   # show the plan first
+quantum-workflow-colab examples/lih-bk.json --output results/lih
+quantum-workflow-colab examples/h2o-dft-gpu.json --output results/h2o-gpu --gpu L4
+```
+
+The driver validates the config locally before renting anything, ships a wheel of your
+checkout (uncommitted changes included), runs the job, checks for a success sentinel
+(`colab exec` exits 0 on failure), downloads and safely extracts the results, and always
+runs `colab stop`. GPU configs get the same pinned, isolated `gpu-cuda12`/`gpu-cuda13`
+environment as the notebook. See [docs/colab.md](docs/colab.md) for authentication, costs,
+recovery and the CLI's traps.
+
 ## What runs where
 
 | Piece | CPU | NVIDIA GPU | TPU | Notes |
 |---|---|---|---|---|
-| PySCF SCF (HF/DFT) | Yes | GPU4PySCF, density-fitted (untested on GPU hardware here) | No | Integral export is always CPU and exact |
+| PySCF SCF (HF/DFT) | Yes | GPU4PySCF, density-fitted, pinned `gpu-cuda12`/`gpu-cuda13` extras | No | Integral export is always CPU and exact |
 | Active space, FCIDUMP, FCI/MP2/CCSD(T) references | Yes | — | No | Post-HF references need `method: "hf"`, CPU |
 | Qubit Hamiltonian (JW / BK) + checks | Yes | — | No | `qubit` extra (OpenFermion) |
 | ADAPT-VQE reference | Yes | — | No | Exact statevector, ≤ 20 qubits |
 | Quantum ESPRESSO `pw.x` | Yes | Needs a separately built GPU QE | No | Gamma-point SCF in a cubic supercell |
+| Li-hBN Wannier/QE audit (`lihbn_repro`) | Yes | — | No | Synthetic demo by default; see `experiments/lihbn/` |
+
+The MCP server does **not** execute jobs in Colab: it runs on its own host. Colab runtimes are
+temporary, and GPU availability, CUDA versions and usage limits vary. No TPU support is claimed.
+GPU mode uses density fitting, which can differ slightly from CPU's default exact SCF; set
+`density_fitting: true` for a CPU calculation using the same approximation.
 
 ## Configuration
 
@@ -59,8 +171,12 @@ is a failed or interrupted run.
 
 - Coordinates are Angstrom. `spin` is **2S = Nα − Nβ, not the multiplicity** (a doublet is `1`). Spin zero uses
   RHF/RKS, open shells ROHF/ROKS.
-- `method`: `"hf"` or `"dft"` (with `xc`, e.g. `"pbe"`, `"b3lyp"`). `device: "gpu"` needs GPU4PySCF and fails
-  instead of falling back to CPU.
+- `method`: `"hf"` or `"dft"` (with `xc`, e.g. `"pbe"`, `"b3lyp"`).
+- `device: "gpu"` runs the SCF on GPU4PySCF: use the Colab GPU environment above, or install the matching
+  `.[gpu-cuda12]`/`.[gpu-cuda13]` extra in a separate local environment. Missing or unsupported GPU
+  functionality is an error, never a CPU fallback. `density_fitting: true` uses the same approximation on CPU
+  (GPU runs are always density-fitted). Exported integrals are exact either way, so density-fitted runs record
+  the fitting error as a warning instead of failing check 2 below.
 - `active_space` (optional): the window around the Fermi level, or explicit 0-based `orbitals`. Core orbitals
   must be doubly occupied and the active orbitals must contain the SCF determinant; otherwise the run stops
   rather than silently changing the reference state. Report results as e.g. *CASCI(4e,4o)/STO-3G*.
@@ -76,7 +192,7 @@ Unknown keys are rejected. The schema is `quantum_workflow/config.py`.
 
 Examples ([examples/](examples/README.md)): `h2-pyscf.json`, `heh-cation-qubit.json` (asymmetric, catches qubit
 ordering bugs), `lih-bk.json` (Bravyi–Kitaev, CCSD(T)), `h2o-cas44.json` (active space), `h2o-dft-gpu.json`
-(GPU4PySCF), `h2-qe.json` (Quantum ESPRESSO).
+(GPU4PySCF), `h2-pyscf-gpu.json` (GPU verification), `h2-qe.json` (Quantum ESPRESSO).
 
 ## Output contract
 
@@ -141,7 +257,8 @@ single-term measurement; λ is also the quantity that sets qubitization/QPE cost
 Each run stops with an error if any of these fails:
 
 1. SCF converged.
-2. The reference determinant's energy from the exported integrals equals the SCF energy (HF on CPU). This catches
+2. The reference determinant's energy from the exported integrals equals the SCF energy (HF without density
+   fitting). This catches
    integral, frozen-core and active-space mistakes.
 3. The qubit Hamiltonian's expectation in `reference_bits` equals that energy. This catches notation, factor-of-½,
    spin pairing, qubit ordering and BK reference-state mistakes at once.
@@ -196,16 +313,6 @@ For VS Code, add to `.vscode/mcp.json`:
 For QE, start the client from an environment whose `PATH` contains `pw.x`. The tools read local files and write
 wherever the server process can; use them only with trusted clients and set resource limits externally.
 
-## Colab
-
-- **Notebook:** open [notebooks/colab.ipynb](notebooks/colab.ipynb) in Colab, set `repo_url`/`branch` in the
-  first cell's form, and run the cells top to bottom.
-- **Terminal → Colab VM:** `quantum-workflow-colab examples/lih-bk.json --output results/lih [--gpu T4]`. It
-  validates the config first, ships a wheel of your checkout, runs the job, checks success (`colab exec` exits
-  0 on failure), downloads the results and always runs `colab stop`. Use `--dry-run` to see the commands first.
-
-See [docs/colab.md](docs/colab.md) for authentication, costs and the CLI's traps.
-
 ## Development
 
 ```bash
@@ -213,6 +320,8 @@ OMP_NUM_THREADS=1 python -m pytest          # full suite (~30 s); -m "not slow" 
 ruff check .
 ```
 
-CI (`.github/workflows/tests.yml`) runs both on Python 3.10 and 3.13. Scope and limits: small molecules,
-validated on CPU; GPU and real-Colab paths are implemented but have not been exercised on GPU hardware or a
-live Colab VM in this repository. These examples are starting points, not converged scientific predictions.
+CI: `tests.yml` runs lint and the suite on Python 3.10 and 3.13; `colab-cpu.yml` runs
+`scripts/verify_colab.py` (suite plus both notebooks, headless); `lihbn-repro.yml` covers the Li-hBN package.
+Scope and limits: small molecules. GPU SCF is checked by `verify_colab.py --device gpu` on a Colab GPU
+runtime; the `quantum-workflow-colab` driver is tested against a fake `colab` CLI only. These examples are
+starting points, not converged scientific predictions.

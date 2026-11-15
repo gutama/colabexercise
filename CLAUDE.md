@@ -12,6 +12,7 @@ ruff check .
 quantum-workflow examples/h2o-cas44.json --check     # validate a config without computing
 quantum-workflow examples/h2o-cas44.json --output results/x && quantum-workflow-adapt results/x
 quantum-workflow-colab CONFIG --output DIR --dry-run # always dry-run before renting a Colab VM
+python scripts/verify_colab.py --project-dir . --output /tmp/verify   # suite + both notebooks, headless
 ```
 
 ## Rules
@@ -26,7 +27,13 @@ quantum-workflow-colab CONFIG --output DIR --dry-run # always dry-run before ren
 - `spin` in configs is 2S, not multiplicity. Configs reject unknown keys; keep it that way.
 - Runners write `summary.json` last via `provenance.write_summary`. Raise on non-convergence; never return an
   unchecked number. Don't print fabricated or placeholder energies.
-- Keep `quantum_workflow/colab_remote.py` stdlib-only at import time (it runs before the package is installed).
+- Keep `quantum_workflow/colab_remote.py` and `colab_runtime.py` stdlib-only at import time (they run before the
+  package is installed).
+- `notebooks/colab.ipynb` is executed headless by `scripts/verify_colab.py`: drive it with environment
+  variables (`COLABEXERCISE_*`), no interactive widgets, and keep the H₂ run as the only `pyscf-*` output.
+- GPU code never falls back to CPU. Install GPU stacks only through the pinned `gpu-cuda12`/`gpu-cuda13` extras
+  into an isolated venv (`colab_runtime`), never into the Colab kernel's Python.
+- `lihbn_repro/` is a separate research package with its own style and CI; ruff excludes it.
 
 ## Colab safety
 

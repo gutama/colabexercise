@@ -20,9 +20,24 @@ dependencies = [
 [project.optional-dependencies]
 # Qubit Hamiltonian export and the ADAPT-VQE reference solver.
 qubit = ["openfermion>=1.6"]
-# Qiskit is only used to cross-check qubit ordering in the tests.
-test = ["pytest>=8", "nbformat>=5", "qiskit>=1.0"]
-dev = ["ruff>=0.6"]
+# scripts/verify_colab.py installs only [test] and runs the whole suite, so it includes OpenFermion.
+test = ["pytest>=8", "nbformat>=5", "nbclient>=0.10", "ipykernel>=6", "pandas>=2",
+        "openfermion>=1.6"]
+# Qiskit only cross-checks qubit ordering (that test skips without it).
+dev = ["ruff>=0.6", "qiskit>=1.0"]
+# Pinned GPU4PySCF stacks; colab_runtime.cuda_extra() picks one from the installed nvcc.
+gpu-cuda12 = [
+  "gpu4pyscf-cuda12x==1.9.2",
+  "gpu4pyscf-libxc-cuda12x==0.9.0",
+  "cupy-cuda12x==13.4.1",
+  "cutensor-cu12==2.2.0",
+]
+gpu-cuda13 = [
+  "gpu4pyscf-cuda13x==1.9.2",
+  "gpu4pyscf-libxc-cuda13x==0.9.0",
+  "cupy-cuda13x==14.0.1",
+  "cutensor-cu13==2.4.1",
+]
 
 [project.scripts]
 quantum-workflow = "quantum_workflow.cli:main"
@@ -31,7 +46,7 @@ quantum-workflow-colab = "quantum_workflow.colab:main"
 quantum-workflow-mcp = "quantum_workflow.mcp_server:main"
 
 [tool.setuptools.packages.find]
-include = ["quantum_workflow*"]
+include = ["quantum_workflow*", "lihbn_repro*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -40,7 +55,14 @@ markers = ["slow: multi-second chemistry runs (deselect with -m 'not slow')"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-extend-exclude = ["build", "notebooks"]
+# lihbn_repro is a separate research package with its own CI workflow (lihbn-repro.yml).
+extend-exclude = ["build", "notebooks", "lihbn_repro", "experiments", "tests/test_lihbn_repro.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Colab runtime/verification code keeps its original ~120-column style.
+"scripts/verify_colab.py" = ["E501", "I001"]
+"quantum_workflow/colab_runtime.py" = ["E501", "I001"]
+"tests/test_colab_gpu.py" = ["E501"]

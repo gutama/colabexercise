@@ -32,6 +32,7 @@ import subprocess
 import sys
 import tarfile
 import traceback
+import venv
 from pathlib import Path
 
 OK = "__QW_JOB_OK__"
@@ -93,14 +94,39 @@ def ensure_qe(root: str | Path = "/content") -> Path:
     return env / "bin"
 
 
-def ensure_gpu4pyscf() -> None:
-    """Install GPU4PySCF for CUDA 12 if a GPU is present (see pyscf.org/user/gpu.html)."""
+def with_extra(requirement: str, extra: str) -> str:
+    """Add an extra to 'name[a] @ url', 'name @ url' or '/path/to/project[a]'."""
+    head, separator, tail = requirement.partition(" @ ")
+    head = head[:-1] + f",{extra}]" if head.endswith("]") else f"{head}[{extra}]"
+    return head + separator + tail
+
+
+def gpu_python(root: Path, requirement: str) -> Path:
+    """Isolated venv with the project's pinned CUDA extra (gpu-cuda12 or gpu-cuda13).
+
+    Mirrors colab_runtime.prepare_environment, which the notebook uses: GPU4PySCF/CuPy
+    never replace the Colab kernel's own NumPy/CuPy, and the extra follows the installed
+    nvcc toolkit rather than the driver's maximum CUDA version.
+    """
     if shutil.which("nvidia-smi") is None:
         raise RuntimeError("Config requests device='gpu' but this runtime has no NVIDIA GPU")
-    try:
-        import gpu4pyscf  # noqa: F401
-    except ImportError:
-        pip_install(["gpu4pyscf-cuda12x", "cutensor-cu12"])
+    probe = subprocess.run(
+        [sys.executable, "-c",
+         "from quantum_workflow.colab_runtime import cuda_extra, check_gpu_architecture\n"
+         "extra = cuda_extra(); check_gpu_architecture(extra); print(extra)"],
+        capture_output=True, text=True)
+    if probe.returncode != 0:
+        raise RuntimeError(f"GPU setup check failed:\n{probe.stdout}{probe.stderr}")
+    extra = probe.stdout.split()[-1]
+    python = root / "qw-gpu-env" / "bin" / "python"
+    if not python.is_file():
+        # Colab's Debian Python omits ensurepip; the host pip installs into the venv.
+        venv.EnvBuilder(with_pip=False).create(python.parent.parent)
+    command = [sys.executable, "-m", "pip", "--python", str(python), "install", "pip",
+               with_extra(requirement, extra)]
+    if _stream(command) != 0:
+        raise RuntimeError(f"GPU environment installation failed for {extra}")
+    return python
 
 
 def _options(argv: list[str]) -> argparse.Namespace:
@@ -144,13 +170,15 @@ def main(argv: list[str] | None = None) -> Path:
                            options.repo, str(base)]
                 if _stream(command) != 0:
                     raise RuntimeError(f"git clone of {options.repo}@{options.ref} failed")
+        requirement = None
         if options.install == "repo":
             if not options.repo:
                 raise ValueError("QW_INSTALL=repo needs QW_REPO")
-            extras = f"[{options.extras}]" if options.extras else ""
-            pip_install([f"{base}{extras}"])
+            requirement = f"{base}[{options.extras}]" if options.extras else str(base)
         elif options.install != "none":
-            pip_install([options.install])
+            requirement = options.install
+        if requirement:
+            pip_install([requirement])
 
         config_path = base / options.config
         config = json.loads(config_path.read_text())
@@ -158,13 +186,17 @@ def main(argv: list[str] | None = None) -> Path:
         env.setdefault("OMP_NUM_THREADS", "1")
         if config.get("backend") == "qe":
             env["PATH"] = f"{ensure_qe(job.parent)}{os.pathsep}{env['PATH']}"
+        python = Path(sys.executable)
         if config.get("device") == "gpu":
-            ensure_gpu4pyscf()
+            if requirement is None:
+                raise ValueError("GPU jobs install the project into an isolated environment; "
+                                 "set QW_INSTALL (it cannot be 'none')")
+            python = gpu_python(job.parent, requirement)
 
         results = job / "results"
         if results.exists():
             raise ValueError(f"{results} already exists; use a fresh job directory")
-        command = [sys.executable, "-m", "quantum_workflow.cli", str(config_path),
+        command = [str(python), "-m", "quantum_workflow.cli", str(config_path),
                    "--output", str(results)]
         if _stream(command, env=env) != 0:
             raise RuntimeError("quantum-workflow reported a failure (see output above)")

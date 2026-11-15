@@ -13,9 +13,13 @@ quantum_workflow/
   workflow.py        public API: parse_config / load_config / run
   provenance.py      versions, threads, timestamps; writes summary.json
   cli.py, mcp_server.py, colab.py (local driver), colab_remote.py (runs on the VM)
+  colab_runtime.py   device selection, pinned CUDA extras, isolated GPU venv, GPU smoke check
+scripts/verify_colab.py  headless end-to-end check on a Colab VM: suite + both notebooks + H2 anchors
+lihbn_repro/, experiments/lihbn/  separate Li-hBN research package (own tests, notebook and workflow)
 examples/            configs; every one is validated by the tests
-tests/               anchors, conversion traps, Colab driver against a fake CLI
-notebooks/colab.ipynb
+tests/               anchors, conversion traps, Colab driver against a fake CLI, GPU/Li-hBN tests
+notebooks/colab.ipynb        executed headless by verify_colab.py: keep env-var control, no widgets
+notebooks/lihbn_reproduction.ipynb
 ```
 
 ## 1. Start your project

@@ -1,6 +1,6 @@
 """Run a config on a Google Colab VM through the ``colab`` CLI (google-colab-cli).
 
-    quantum-workflow-colab examples/lih-pyscf-qubit.json --output results/lih [--gpu T4]
+    quantum-workflow-colab examples/lih-bk.json --output results/lih [--gpu L4]
 
 The driver validates the config locally *before* renting anything, then:
 ``colab new`` -> upload the job (config, pseudopotentials, a wheel of this project)
@@ -149,7 +149,7 @@ def submit(config_path: str | Path, output_dir: str | Path, *, gpu: str | None =
         # The CLI silently turns an unknown GPU name into an A100.
         raise ColabError(f"Unknown GPU {gpu!r}; choose from {', '.join(GPUS)}")
     if device == "gpu" and gpu is None:
-        raise ColabError("Config sets device='gpu'; pass --gpu (e.g. --gpu T4)")
+        raise ColabError("Config sets device='gpu'; pass --gpu (e.g. --gpu L4)")
     if gpu is not None and device != "gpu":
         print(f"warning: renting a {gpu} GPU for a CPU-only config", file=sys.stderr)
 

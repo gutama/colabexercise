@@ -1,30 +1,35 @@
 import ast
-import json
+import re
 
 import nbformat
+import pytest
 from conftest import ROOT
 
-NOTEBOOK = ROOT / "notebooks/colab.ipynb"
+NOTEBOOKS = ["colab.ipynb", "lihbn_reproduction.ipynb"]
 
 
-def code_cells():
-    notebook = nbformat.read(NOTEBOOK, as_version=4)
+def code_cells(name):
+    notebook = nbformat.read(ROOT / "notebooks" / name, as_version=4)
     nbformat.validate(notebook)
     return [cell for cell in notebook.cells if cell.cell_type == "code"]
 
 
-def test_notebook_is_valid_clean_and_parses():
-    for cell in code_cells():
+@pytest.mark.parametrize("name", NOTEBOOKS)
+def test_notebooks_are_valid_clean_and_parse(name):
+    for cell in code_cells(name):
         assert not cell.get("outputs") and cell.get("execution_count") is None
-        assert cell.source.startswith("# @title"), "every code cell gets a Colab title"
         python = "\n".join(line for line in cell.source.splitlines()
                            if not line.lstrip().startswith(("%", "!")))
         ast.parse(python)
 
 
-def test_notebook_examples_exist():
-    sources = "\n".join(cell.source for cell in code_cells())
-    marker = 'example = "'
-    options = sources.split(marker, 1)[1].split("# @param", 1)[1].split("\n", 1)[0]
-    for name in json.loads(options.strip()):
+def test_colab_notebook_references_existing_examples_and_distinct_outputs():
+    sources = "\n".join(cell.source for cell in code_cells("colab.ipynb"))
+    referenced = set(re.findall(r"examples/([\w.+-]+\.json)", sources))
+    referenced |= set(re.findall(r"COLABEXERCISE_QUBIT_EXAMPLE', '([\w+-]+\.json)'", sources))
+    assert referenced, "expected the notebook to run example configs"
+    for name in referenced:
         assert (ROOT / "examples" / name).is_file(), name
+    # scripts/verify_colab.py reads the H2 run from pyscf-*; other runs must not match it.
+    prefixes = re.findall(r"prefix='([\w-]+)'", sources)
+    assert prefixes.count("pyscf-") == 1 and "qubit-" in prefixes

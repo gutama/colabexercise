@@ -125,3 +125,18 @@ def test_wheel_contains_remote_runner(tmp_path):
     names = zipfile.ZipFile(wheel).namelist()
     assert "quantum_workflow/colab_remote.py" in names
     assert "quantum_workflow/backends/pyscf_backend.py" in names
+
+
+def test_gpu_jobs_use_pinned_extra_in_isolated_environment(tmp_path, capsys):
+    assert colab_remote.with_extra("pkg[qubit] @ file:///c/p.whl", "gpu-cuda12") == \
+        "pkg[qubit,gpu-cuda12] @ file:///c/p.whl"
+    assert colab_remote.with_extra("pkg @ git+https://h/r@main", "gpu-cuda13") == \
+        "pkg[gpu-cuda13] @ git+https://h/r@main"
+    assert colab_remote.with_extra("/c/repo", "gpu-cuda12") == "/c/repo[gpu-cuda12]"
+    job = tmp_path / "job"
+    job.mkdir()
+    (job / "config.json").write_text((ROOT / "examples/h2-pyscf-gpu.json").read_text())
+    with pytest.raises(SystemExit):  # never fall back to the kernel's own Python
+        colab_remote.main(["--job-dir", str(job), "--install", "none"])
+    assert "cannot be 'none'" in capsys.readouterr().out
+    assert not (job / "results").exists()

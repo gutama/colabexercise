@@ -74,6 +74,10 @@ class PySCFConfig(BackendConfig):
     method: Literal["hf", "dft"] = "hf"
     xc: str = "pbe"
     device: Literal["cpu", "gpu"] = "cpu"
+    density_fitting: bool = Field(
+        default=False,
+        description="Density-fitted SCF (always on for GPU); use it for CPU references to GPU runs",
+    )
     symmetry: bool = Field(
         default=False,
         description="Point-group symmetry; makes degenerate orbitals reproducible across runs",
@@ -98,8 +102,9 @@ class PySCFConfig(BackendConfig):
         post_hf = set(methods) - {"fci"}
         if post_hf and self.method != "hf":
             raise ValueError("mp2/ccsd/ccsd(t) references require method='hf'")
-        if post_hf and self.device != "cpu":
-            raise ValueError("mp2/ccsd/ccsd(t) references are only supported with device='cpu'")
+        if post_hf and (self.device != "cpu" or self.density_fitting):
+            raise ValueError("mp2/ccsd/ccsd(t) references need exact integrals: "
+                             "device='cpu' and density_fitting=false")
         space = self.active_space
         if space is not None:
             if space.n_electrons < self.molecule.spin:

@@ -1,11 +1,12 @@
 # Running on Google Colab
 
-There are three routes. They share one rule: **a Colab VM bills until it is stopped**.
+There are four routes. They share one rule: **a Colab VM bills until it is stopped**.
 
 | Route | Best for | Results | Cleanup |
 |---|---|---|---|
 | [`notebooks/colab.ipynb`](../notebooks/colab.ipynb) in the browser | exploring, teaching | download cell / Drive | close or disconnect the runtime |
 | `quantum-workflow-colab` from your terminal | repeatable jobs, agents, scripts | extracted into `--output` | automatic `colab stop` |
+| `colab run scripts/verify_colab.py` | checking a CPU/GPU environment end to end (suite + both notebooks) | `verification.json` (keep the VM with `--keep`) | automatic, or manual with `--keep` |
 | raw `colab exec` / `colab run` | ad hoc experiments | manual `colab download` | manual `colab stop` |
 
 The last two use Google's [`colab` CLI](https://pypi.org/project/google-colab-cli/) (checked against
@@ -37,7 +38,7 @@ URL and exits 1 when you are not logged in.
 ```bash
 quantum-workflow-colab examples/lih-bk.json --output results/lih-colab --dry-run   # show the plan
 quantum-workflow-colab examples/lih-bk.json --output results/lih-colab
-quantum-workflow-colab examples/h2o-dft-gpu.json --output results/h2o-gpu --gpu T4
+quantum-workflow-colab examples/h2o-dft-gpu.json --output results/h2o-gpu --gpu L4
 ```
 
 What it does, in order:
@@ -49,9 +50,12 @@ What it does, in order:
 3. Builds a wheel of your checkout, uncommitted changes included (`--source local`, the default). Use
    `--source git+https://github.com/<you>/<repo>@<ref>` to install a pushed ref, or `--source preinstalled`.
 4. `colab new` → creates `/content/<session>` → uploads the config, pseudopotentials and wheel.
-5. `colab exec -f quantum_workflow/colab_remote.py --timeout 3600`. The remote runner installs the project (plus
-   QE via micromamba or GPU4PySCF when the config needs them), runs the job in a subprocess, archives
-   `results/` without QE scratch files, and prints `__QW_JOB_OK__` as its last line on success.
+5. `colab exec -f quantum_workflow/colab_remote.py --timeout 3600`. The remote runner installs the project, plus
+   QE via micromamba when the config needs it. For `device: "gpu"` it detects the `nvcc` toolkit and installs the
+   pinned `gpu-cuda12`/`gpu-cuda13` extra into an isolated venv (`/content/qw-gpu-env`), exactly as the notebook
+   does through `colab_runtime`, so the kernel's own NumPy/CuPy are never replaced. It runs the job in a
+   subprocess, archives `results/` without QE scratch files, and prints `__QW_JOB_OK__` as its last line on
+   success.
 6. Checks for that sentinel and downloads and safely extracts the archive into `--output`.
 7. `colab stop`, in a `finally`, so errors and Ctrl-C still release the VM. `--keep` skips this and prints the
    stop command instead.
@@ -104,7 +108,9 @@ colab stop -s nb-job
 
 - `colab usage` shows your compute-unit balance and burn rate. Run it before asking for large GPUs.
 - Supported shapes: `--gpu T4|L4|G4|H100|A100`, `--high-mem` (Colab Pro/Pro+). Availability depends on your
-  tier; HTTP 400 means no entitlement (fall back to `T4` or CPU), and 412 means too many sessions or no capacity.
+  tier; HTTP 400 means no entitlement (fall back to CPU), and 412 means too many sessions or no capacity.
+- GPU4PySCF's CUDA 13 wheels need compute capability ≥ 8.0: on Colab's current CUDA 13 image use **L4 or
+  A100**. A T4 (7.5) is rejected before anything is installed; it needs a CUDA 12 runtime.
 - Nothing in this project uses TPUs. Every example here runs on CPU in seconds; GPUs only pay off for larger
   DFT (GPU4PySCF), and qubit export and ADAPT stay on CPU.
 

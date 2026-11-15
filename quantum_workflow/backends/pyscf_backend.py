@@ -30,26 +30,38 @@ def build_molecule(config: PySCFConfig):
     )
 
 
+def density_fitted(config: PySCFConfig) -> bool:
+    return config.density_fitting or config.device == "gpu"
+
+
 def mean_field(config: PySCFConfig, mol):
+    """Return (mean-field object, GPU info or None). GPU never falls back to CPU."""
     if config.method == "hf":
         mf = scf.RHF(mol) if mol.spin == 0 else scf.ROHF(mol)
     else:
         mf = dft.RKS(mol) if mol.spin == 0 else dft.ROKS(mol)
         mf.xc = config.xc
+    if density_fitted(config):
+        mf = mf.density_fit()
+    gpu = None
     if config.device == "gpu":
         try:
-            import gpu4pyscf  # noqa: F401
+            from ..colab_runtime import gpu_info
+            gpu = gpu_info()  # real CUDA operation + cuTENSOR load check
         except ImportError as exc:
             raise RuntimeError("GPU requested; install a compatible GPU4PySCF/CUDA stack") from exc
-        mf = mf.density_fit().to_gpu()
+        mf = mf.to_gpu()
+        if not type(mf).__module__.startswith("gpu4pyscf."):
+            raise RuntimeError("GPU conversion did not return a GPU4PySCF solver")
     mf.max_cycle = config.max_cycle
     mf.conv_tol = config.convergence_tolerance
-    return mf
+    return mf, gpu
 
 
 def run_pyscf(config: PySCFConfig, output: Path) -> dict:
     mol = build_molecule(config)
-    mf = mean_field(config, mol)
+    mf, gpu = mean_field(config, mol)
+    implementation = type(mf).__module__ + "." + type(mf).__name__
     energy = float(mf.kernel())
     if not mf.converged:
         raise RuntimeError(f"PySCF {config.method} did not converge in {config.max_cycle} cycles")
@@ -69,16 +81,16 @@ def run_pyscf(config: PySCFConfig, output: Path) -> dict:
     ham = qh.build_hamiltonian(mol, mo_coeff, mo_occ, core, active)
     reference_energy = qh.determinant_energy(ham)
     warnings = _warnings(config, mo_energy, active)
-    if config.method == "hf" and config.device == "cpu":
-        if abs(reference_energy - energy) > CONSISTENCY_TOLERANCE:
-            raise RuntimeError(
-                f"Exported integrals are inconsistent: reference determinant gives "
-                f"{reference_energy:.10f} Ha but SCF gave {energy:.10f} Ha"
-            )
-    elif config.device == "gpu":
+    if density_fitted(config):
         warnings.append(
-            "GPU SCF used density fitting; exported integrals are exact, so the reference "
-            "determinant energy differs from the SCF energy by the fitting error"
+            "SCF used density fitting; exported integrals are exact, so the reference "
+            f"determinant energy differs from the SCF energy by the fitting error "
+            f"({reference_energy - energy:+.2e} Ha)"
+        )
+    elif config.method == "hf" and abs(reference_energy - energy) > CONSISTENCY_TOLERANCE:
+        raise RuntimeError(
+            f"Exported integrals are inconsistent: reference determinant gives "
+            f"{reference_energy:.10f} Ha but SCF gave {energy:.10f} Ha"
         )
 
     files = ["summary.json", "integrals.npz"]
@@ -107,6 +119,11 @@ def run_pyscf(config: PySCFConfig, output: Path) -> dict:
         "schema_version": 2,
         "backend": "pyscf",
         "pyscf_version": pyscf.__version__,
+        "scf_device": config.device,
+        "scf_implementation": implementation,
+        "density_fitting": density_fitted(config),
+        "gpu": gpu,
+        "integral_export_device": "cpu",
         "config": config.model_dump(mode="json"),
         "energy_hartree": energy,
         "scf_converged": True,
