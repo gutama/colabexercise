@@ -142,9 +142,11 @@ def _options(argv: list[str]) -> argparse.Namespace:
 
 
 def _script_argv() -> list[str]:
-    # Under `colab exec` this file runs inside a Jupyter kernel whose argv belongs to
-    # the kernel launcher; only `colab run` (or plain python) passes real arguments.
-    if sys.argv and sys.argv[0].endswith("ipykernel_launcher.py"):
+    # Under `colab exec` this file runs inside a Jupyter kernel whose argv belongs to the
+    # kernel launcher -- colab_kernel_launcher.py on Colab, ipykernel_launcher.py elsewhere,
+    # followed by `-f <connection file>`. Only `colab run` (or plain python) passes real
+    # arguments to this script.
+    if sys.argv and Path(sys.argv[0]).name.endswith("kernel_launcher.py"):
         return []
     return sys.argv[1:]
 
@@ -158,7 +160,12 @@ def _archive(results: Path, target: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> Path:
-    options = _options(_script_argv() if argv is None else argv)
+    try:
+        options = _options(_script_argv() if argv is None else argv)
+    except SystemExit as exc:  # argparse error: report it through the sentinel too
+        if exc.code:
+            print(f"{FAILED} invalid arguments (see usage above)", flush=True)
+        raise
     job = Path(options.job_dir)
     try:
         job.mkdir(parents=True, exist_ok=True)

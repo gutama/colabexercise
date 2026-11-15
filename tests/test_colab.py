@@ -140,3 +140,20 @@ def test_gpu_jobs_use_pinned_extra_in_isolated_environment(tmp_path, capsys):
         colab_remote.main(["--job-dir", str(job), "--install", "none"])
     assert "cannot be 'none'" in capsys.readouterr().out
     assert not (job / "results").exists()
+
+
+@pytest.mark.parametrize("launcher", [
+    "/usr/local/lib/python3.12/dist-packages/colab_kernel_launcher.py",  # real Colab VM
+    "/usr/lib/python3/dist-packages/ipykernel_launcher.py",
+])
+def test_kernel_launcher_argv_is_ignored_but_script_argv_is_used(monkeypatch, launcher):
+    monkeypatch.setattr(sys, "argv", [launcher, "-f", "/root/.local/share/jupyter/runtime/k.json"])
+    assert colab_remote._script_argv() == []
+    monkeypatch.setattr(sys, "argv", ["colab_remote.py", "--install", "none"])
+    assert colab_remote._script_argv() == ["--install", "none"]
+
+
+def test_bad_arguments_still_print_the_failure_sentinel(capsys):
+    with pytest.raises(SystemExit):
+        colab_remote.main(["--no-such-option"])
+    assert colab_remote.FAILED in capsys.readouterr().out

@@ -73,7 +73,16 @@ def main() -> int:
         for item in args.env:
             key, value = item.split("=", 1)
             env[key] = str(local(value)) if value.startswith("/content") else value
-        subprocess.run([sys.executable, "-c", code], env=env, cwd=ROOT / "content")
+        # Run the code the way a Colab kernel does: no __file__, and an argv that belongs to
+        # the kernel launcher (measured on a real Colab VM), not to the code being executed.
+        kernel = (
+            "import sys\n"
+            "sys.argv = ['/usr/local/lib/python3.12/dist-packages/colab_kernel_launcher.py', '-f',"
+            " '/root/.local/share/jupyter/runtime/kernel-fake.json']\n"
+            "exec(compile(sys.stdin.read(), '<colab-kernel>', 'exec'), {'__name__': '__main__'})\n"
+        )
+        subprocess.run([sys.executable, "-c", kernel], input=code, text=True, env=env,
+                       cwd=ROOT / "content")
         return 0
     print(f"unsupported command {args.command}")
     return 2
