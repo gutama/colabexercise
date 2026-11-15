@@ -323,5 +323,6 @@ ruff check .
 CI: `tests.yml` runs lint and the suite on Python 3.10 and 3.13; `colab-cpu.yml` runs
 `scripts/verify_colab.py` (suite plus both notebooks, headless); `lihbn-repro.yml` covers the Li-hBN package.
 Scope and limits: small molecules. GPU SCF is checked by `verify_colab.py --device gpu` on a Colab GPU
-runtime; the `quantum-workflow-colab` driver is tested against a fake `colab` CLI only. These examples are
-starting points, not converged scientific predictions.
+runtime (passed on an NVIDIA L4, CUDA 13, 2026-11-15: 67 tests plus both notebooks). The
+`quantum-workflow-colab` driver ran a B3LYP GPU job on a Colab L4 the same day; in CI it is tested against a
+fake `colab` CLI. These examples are starting points, not converged scientific predictions.

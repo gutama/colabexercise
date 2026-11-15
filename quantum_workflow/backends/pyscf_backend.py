@@ -81,7 +81,9 @@ def run_pyscf(config: PySCFConfig, output: Path) -> dict:
     ham = qh.build_hamiltonian(mol, mo_coeff, mo_occ, core, active)
     reference_energy = qh.determinant_energy(ham)
     warnings = _warnings(config, mo_energy, active)
-    if density_fitted(config):
+    # Only for HF does the determinant energy equal the SCF energy; a DFT energy is a
+    # different functional of the same orbitals, so there is nothing to compare.
+    if config.method == "hf" and density_fitted(config):
         warnings.append(
             "SCF used density fitting; exported integrals are exact, so the reference "
             f"determinant energy differs from the SCF energy by the fitting error "

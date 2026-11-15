@@ -248,3 +248,9 @@ def test_cpu_density_fitting_warns_instead_of_failing_the_exact_integral_check(t
     with pytest.raises(ValueError, match="exact integrals"):
         parse_config({"backend": "pyscf", "molecule": H2, "density_fitting": True,
                       "reference_methods": ["ccsd"]})
+    # DFT energies are not determinant energies: no "fitting error" warning (seen live as
+    # a bogus +0.40 Ha "fitting error" for B3LYP water on a Colab L4).
+    config.method = "dft"
+    dft_summary = run(config, tmp_path / "df-dft")
+    assert dft_summary["density_fitting"]
+    assert not any("fitting error" in warning for warning in dft_summary["warnings"])

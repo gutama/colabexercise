@@ -125,6 +125,10 @@ colab stop -s nb-job
 - **Wedged kernel**: `colab restart-kernel -s NAME` keeps the VM; otherwise `colab stop` and start again.
 - **HTTP debugging**: `colab --logtostderr <cmd>` or `~/.config/colab-cli/colab.log`.
 
-Status: the driver is tested against a fake `colab` CLI that mimics 0.7.5's command shapes and its exit-0-on-
-failure behaviour (`tests/fake_colab.py`). It has not yet been run against a live Colab VM from this
-repository, so check the first real run with `--dry-run` and then `colab sessions`.
+Status (google-colab-cli 0.7.5, 2026-11-15): the driver ran `examples/h2o-dft-gpu.json` end to end on a Colab
+**NVIDIA L4** (CUDA 13, GPU4PySCF 1.9.2): allocation, upload, the isolated `gpu-cuda13` install, the GPU SCF,
+download and `colab stop`. The B3LYP/def2-SVP energy matched a CPU density-fitting run to 6e-12 Ha. The first
+live attempt also showed the failure path working: a remote error left `colab exec` at exit 0, the driver saw
+no sentinel, reported the failure and released the VM. In CI the driver is tested against a fake `colab` CLI
+(`tests/fake_colab.py`) that reproduces the CLI's command shapes, its exit-0-on-failure behaviour and the
+Colab kernel's launcher argv.
