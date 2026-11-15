@@ -1,0 +1,96 @@
+"""Test double for the `colab` CLI (google-colab-cli 0.7.5 command shapes).
+
+Remote paths under /content map to $FAKE_COLAB_ROOT/content and `exec` runs code
+locally. Like the real CLI, `exec` exits 0 even when the code raises -- which is the
+behaviour the driver must not trust. FAKE_COLAB_UNAUTH=1 mimics a missing login.
+"""
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(os.environ["FAKE_COLAB_ROOT"])
+STATE = ROOT / "sessions.json"
+
+
+def local(remote: str) -> Path:
+    return ROOT / remote.lstrip("/")
+
+
+def main() -> int:
+    argv = sys.argv[1:]
+    with (ROOT / "calls.log").open("a") as log:
+        log.write(" ".join(argv) + "\n")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("command")
+    parser.add_argument("-s", "--session")
+    parser.add_argument("-f", "--file")
+    parser.add_argument("--timeout")
+    parser.add_argument("--gpu")
+    parser.add_argument("--high-mem", action="store_true")
+    parser.add_argument("--env", action="append", default=[])
+    parser.add_argument("paths", nargs="*")
+    # Intermixed: `upload -s NAME SRC DST` puts positionals after an option, which plain
+    # parse_args only accepts from Python 3.12 on.
+    args = parser.parse_intermixed_args(argv)
+    sessions = json.loads(STATE.read_text()) if STATE.exists() else []
+
+    if os.environ.get("FAKE_COLAB_UNAUTH"):
+        print("To authorize colab-cli, visit this URL in any browser:\n"
+              "  https://accounts.google.com/o/oauth2/auth?...\nAborted.")
+        return 1
+    if args.command == "sessions":
+        print("[colab] A new version of Colab CLI is available.")
+        print("\n".join(
+            f"[{name}] endpoint-{name} | Hardware: CPU | Shape: Standard | Variant: DEFAULT"
+            for name in sessions
+        ) or "[colab] No active sessions found on server.")
+        return 0
+    if args.command == "new":
+        sessions.append(args.session)
+        STATE.write_text(json.dumps(sessions))
+        (ROOT / "content").mkdir(parents=True, exist_ok=True)
+        return 0
+    if args.command == "stop":
+        STATE.write_text(json.dumps([s for s in sessions if s != args.session]))
+        return 0
+    if args.session not in sessions:
+        print(f"Session '{args.session}' not found")
+        return 1
+    if args.command == "upload":
+        source, target = args.paths
+        if not local(target).parent.is_dir():
+            print("HTTP 500")
+            return 1
+        shutil.copyfile(source, local(target))
+        return 0
+    if args.command == "download":
+        source, target = args.paths
+        shutil.copyfile(local(source), target)
+        return 0
+    if args.command == "exec":
+        code = Path(args.file).read_text() if args.file else sys.stdin.read()
+        env = dict(os.environ)
+        for item in args.env:
+            key, value = item.split("=", 1)
+            env[key] = str(local(value)) if value.startswith("/content") else value
+        # Run the code the way a Colab kernel does: no __file__, and an argv that belongs to
+        # the kernel launcher (measured on a real Colab VM), not to the code being executed.
+        kernel = (
+            "import sys\n"
+            "sys.argv = ['/usr/local/lib/python3.12/dist-packages/colab_kernel_launcher.py', '-f',"
+            " '/root/.local/share/jupyter/runtime/kernel-fake.json']\n"
+            "exec(compile(sys.stdin.read(), '<colab-kernel>', 'exec'), {'__name__': '__main__'})\n"
+        )
+        subprocess.run([sys.executable, "-c", kernel], input=code, text=True, env=env,
+                       cwd=ROOT / "content")
+        return 0
+    print(f"unsupported command {args.command}")
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

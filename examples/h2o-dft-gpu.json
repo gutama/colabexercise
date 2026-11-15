@@ -1,0 +1,15 @@
+{
+  "backend": "pyscf",
+  "molecule": {
+    "atoms": [
+      {"element": "O", "xyz": [0.0, 0.0, 0.1173]},
+      {"element": "H", "xyz": [0.0, 0.7572, -0.4692]},
+      {"element": "H", "xyz": [0.0, -0.7572, -0.4692]}
+    ]
+  },
+  "basis": "def2-svp",
+  "method": "dft",
+  "xc": "b3lyp",
+  "device": "gpu",
+  "export_fcidump": false
+}

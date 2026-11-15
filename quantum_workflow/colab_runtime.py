@@ -57,7 +57,7 @@ def check_gpu_architecture(extra):
 def prepare_environment(project, device, env_dir, *, with_tests=False):
     """Return an interpreter without replacing the active notebook's packages."""
     project, env_dir = Path(project).resolve(), Path(env_dir).resolve()
-    extras = ["test"] if with_tests else []
+    extras = ["qubit"] + (["test"] if with_tests else [])  # qubit: OpenFermion for qubit export
     if device == "gpu":
         resolve_device("gpu")
         extra = cuda_extra()
