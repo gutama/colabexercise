@@ -101,8 +101,13 @@ def stage_job(config_path: Path, staging: Path, source: str, extras: str) -> tup
     data = json.loads(config_path.read_text())
     files = []
     if isinstance(config, QEConfig):
+        used = {"config.json"}
         for element, pseudo in config.pseudopotentials.items():
-            staged = staging / f"{element}.{pseudo.path.name}"
+            name = pseudo.path.name
+            if name in used:  # two elements sharing a filename: disambiguate
+                name = f"{element}.{name}"
+            used.add(name)
+            staged = staging / name
             shutil.copyfile(pseudo.path, staged)
             data["pseudopotentials"][element]["path"] = staged.name
             files.append(staged)

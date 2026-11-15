@@ -157,3 +157,29 @@ def test_bad_arguments_still_print_the_failure_sentinel(capsys):
     with pytest.raises(SystemExit):
         colab_remote.main(["--no-such-option"])
     assert colab_remote.FAILED in capsys.readouterr().out
+
+
+def test_qe_job_stages_pseudopotentials_and_rewrites_paths(tmp_path):
+    from quantum_workflow.colab import stage_job
+
+    pseudos = tmp_path / "pp"
+    pseudos.mkdir()
+    for element in ("H", "Li"):
+        (pseudos / f"{element}.upf").write_text(f"{element} pseudo")
+    (pseudos / "shared").mkdir()
+    (pseudos / "shared" / "H.upf").write_text("same filename as H, different file")
+    config = tmp_path / "lih.json"
+    data = json.loads((ROOT / "examples/h2-qe.json").read_text())
+    data["molecule"]["atoms"][0]["element"] = "Li"
+    data["pseudopotentials"] = {"Li": {"path": "pp/shared/H.upf", "mass": 6.94},
+                                "H": {"path": "pp/H.upf", "mass": 1.008}}
+    config.write_text(json.dumps(data))
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    files, requirement = stage_job(config, staging, "preinstalled", "qubit")
+    assert requirement == "none"
+    staged = json.loads((staging / "config.json").read_text())["pseudopotentials"]
+    assert staged["Li"]["path"] == "H.upf" and staged["H"]["path"] == "H.H.upf"
+    assert (staging / "H.upf").read_text() == "same filename as H, different file"
+    assert (staging / "H.H.upf").read_text() == "H pseudo"
+    assert sorted(f.name for f in files) == ["H.H.upf", "H.upf", "config.json"]
