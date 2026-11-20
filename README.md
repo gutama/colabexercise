@@ -281,6 +281,9 @@ ground state is a pool/mapping bug, and the latter raises an error.
 
 ## Quantum ESPRESSO
 
+The [wide-bandgap screening benchmark](wbg-benchmark/README.md) uses Quantum ESPRESSO to screen
+GaN- and 4H-SiC-class semiconductors. It has its own Python package and calibration cases.
+
 Install a working `pw.x` separately, e.g. `conda create -y -p "$PWD/.qe-env" -c conda-forge --override-channels
 'qe=7.6'` and `export PATH="$PWD/.qe-env/bin:$PATH"`. Some Ubuntu 24.04 QE 6.7 packages abort in UPF processing.
 Download a vetted pseudopotential per element (paths are relative to the JSON file):
