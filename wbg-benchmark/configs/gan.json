@@ -1,0 +1,20 @@
+{
+  "id": "gan-wurtzite",
+  "track": "gan",
+  "calibration": true,
+  "structure": "builtin:gan-wurtzite",
+  "pseudos": {
+    "Ga": {"path": "../pseudos/Ga.upf", "source": "Replace with vetted PBE ONCV Ga with 3d in valence"},
+    "N": {"path": "../pseudos/N.upf", "source": "Replace with vetted PBE ONCV N"}
+  },
+  "qe": {
+    "nbnd": 32,
+    "pbe_kmesh": [8, 8, 6],
+    "hse_kmesh": [8, 8, 4],
+    "exchange_qmesh": [4, 4, 2],
+    "dfpt_qmesh": [4, 4, 2],
+    "sample_qmesh": [12, 12, 6]
+  },
+  "conditions": {"direction": "a"},
+  "transport": "epw"
+}

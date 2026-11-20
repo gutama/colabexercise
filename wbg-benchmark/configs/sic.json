@@ -1,0 +1,20 @@
+{
+  "id": "sic-4h",
+  "track": "sic",
+  "calibration": true,
+  "structure": "builtin:sic-4h",
+  "pseudos": {
+    "Si": {"path": "../pseudos/Si.upf", "source": "Replace with vetted PBE ONCV Si"},
+    "C": {"path": "../pseudos/C.upf", "source": "Replace with vetted PBE ONCV C"}
+  },
+  "qe": {
+    "nbnd": 28,
+    "pbe_kmesh": [8, 8, 4],
+    "hse_kmesh": [8, 8, 4],
+    "exchange_qmesh": [4, 4, 2],
+    "dfpt_qmesh": [4, 4, 2],
+    "sample_qmesh": [12, 12, 6]
+  },
+  "conditions": {"direction": "c"},
+  "transport": "epw"
+}
